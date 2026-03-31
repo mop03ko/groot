@@ -36,8 +36,8 @@ export default {
         },
       },
       fontFamily: {
-        sans: ['"DM Sans"', 'system-ui', '-apple-system', 'sans-serif'],
-        serif: ['"Playfair Display"', 'Georgia', 'serif'],
+        sans: ['"Cera Pro"', 'system-ui', '-apple-system', 'sans-serif'],
+        serif: ['"Cera Pro"', 'system-ui', '-apple-system', 'sans-serif'],
         mono: ['"DM Mono"', 'monospace'],
       },
     },
