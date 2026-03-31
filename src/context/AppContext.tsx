@@ -42,6 +42,10 @@ type Action =
   | { type: 'ADD_TOAST'; payload: ToastMessage }
   | { type: 'REMOVE_TOAST'; payload: string }
   | { type: 'LOAD_CART'; payload: CartItem[] }
+  | { type: 'ADD_PRODUCT'; payload: Product }
+  | { type: 'ADD_ADDRESS'; payload: import('../types').Address }
+  | { type: 'UPDATE_ADDRESS'; payload: import('../types').Address }
+  | { type: 'DELETE_ADDRESS'; payload: string }
 
 function reducer(state: AppState, action: Action): AppState {
   switch (action.type) {
@@ -120,6 +124,27 @@ function reducer(state: AppState, action: Action): AppState {
     case 'LOAD_CART':
       return { ...state, cart: action.payload }
 
+    case 'ADD_PRODUCT':
+      return { ...state, products: [...state.products, action.payload] }
+
+    case 'ADD_ADDRESS':
+      if (!state.user) return state
+      return { ...state, user: { ...state.user, addresses: [...state.user.addresses, action.payload] } }
+
+    case 'UPDATE_ADDRESS':
+      if (!state.user) return state
+      return {
+        ...state,
+        user: {
+          ...state.user,
+          addresses: state.user.addresses.map(a => a.id === action.payload.id ? action.payload : a),
+        },
+      }
+
+    case 'DELETE_ADDRESS':
+      if (!state.user) return state
+      return { ...state, user: { ...state.user, addresses: state.user.addresses.filter(a => a.id !== action.payload) } }
+
     default:
       return state
   }
@@ -152,6 +177,12 @@ interface AppContextValue {
   isFavorite: (productId: string) => boolean
   // Toast
   toast: (message: string, type?: ToastMessage['type']) => void
+  // Products (admin)
+  addProduct: (product: Product) => void
+  // Addresses
+  addAddress: (address: import('../types').Address) => void
+  updateAddress: (address: import('../types').Address) => void
+  deleteAddress: (id: string) => void
 }
 
 const AppContext = createContext<AppContextValue | null>(null)
@@ -273,6 +304,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
     dispatch({ type: 'ADD_TOAST', payload: { id: Date.now().toString(), message, type } })
   }, [])
 
+  const addProduct = useCallback((product: Product) =>
+    dispatch({ type: 'ADD_PRODUCT', payload: product }), [])
+
+  const addAddress = useCallback((address: import('../types').Address) =>
+    dispatch({ type: 'ADD_ADDRESS', payload: address }), [])
+
+  const updateAddress = useCallback((address: import('../types').Address) =>
+    dispatch({ type: 'UPDATE_ADDRESS', payload: address }), [])
+
+  const deleteAddress = useCallback((id: string) =>
+    dispatch({ type: 'DELETE_ADDRESS', payload: id }), [])
+
   return (
     <AppContext.Provider value={{
       state,
@@ -282,6 +325,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       placeOrder, updateOrderStatus, myOrders,
       toggleFavorite, isFavorite,
       toast,
+      addProduct,
+      addAddress, updateAddress, deleteAddress,
     }}>
       {children}
     </AppContext.Provider>

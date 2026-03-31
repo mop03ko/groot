@@ -1,8 +1,16 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Package, MapPin, User, Star, Heart, ShoppingBag, Clock, CheckCircle, Truck, XCircle, ChevronRight, Edit2 } from 'lucide-react'
+import { Package, MapPin, User, Star, Heart, ShoppingBag, Clock, CheckCircle, Truck, XCircle, ChevronRight, Edit2, Trash2, Plus } from 'lucide-react'
 import { useApp } from '../context/AppContext'
-import type { OrderStatus } from '../types'
+import type { OrderStatus, Address } from '../types'
+
+const UB_DISTRICTS = [
+  'Баянзүрх дүүрэг', 'Сүхбаатар дүүрэг', 'Хан-Уул дүүрэг', 'Баянгол дүүрэг',
+  'Чингэлтэй дүүрэг', 'Налайх дүүрэг', 'Сонгинохайрхан дүүрэг', 'Багануур дүүрэг', 'Багахангай дүүрэг',
+]
+
+type AddrForm = { label: string; district: string; khoroo: string; street: string; building: string; isDefault: boolean }
+const EMPTY_ADDR: AddrForm = { label: 'Гэр', district: UB_DISTRICTS[0], khoroo: '', street: '', building: '', isDefault: false }
 
 const STATUS_CONFIG: Record<OrderStatus, { label: string; color: string; icon: typeof Package }> = {
   pending:    { label: 'Хүлээгдэж байна', color: 'text-amber-600 bg-amber-50 border-amber-200',    icon: Clock },
@@ -27,9 +35,38 @@ function getTier(pts: number) {
 type Tab = 'overview' | 'orders' | 'profile' | 'addresses' | 'favorites' | 'loyalty'
 
 export default function UserDashboard() {
-  const { state, myOrders } = useApp()
+  const { state, myOrders, addAddress, updateAddress, deleteAddress, toast } = useApp()
   const [tab, setTab] = useState<Tab>('overview')
   const [expandedOrder, setExpandedOrder] = useState<string | null>(null)
+  const [addrEditId, setAddrEditId] = useState<string | 'new' | null>(null)
+  const [addrForm, setAddrForm] = useState<AddrForm>(EMPTY_ADDR)
+
+  function openNewAddr() {
+    setAddrForm(EMPTY_ADDR)
+    setAddrEditId('new')
+  }
+
+  function openEditAddr(addr: Address) {
+    setAddrForm({ label: addr.label, district: addr.district, khoroo: addr.khoroo, street: addr.street, building: addr.building, isDefault: addr.isDefault })
+    setAddrEditId(addr.id)
+  }
+
+  function handleSaveAddr() {
+    if (!addrForm.building.trim()) { toast('Байр/тоотыг бөглөнө үү', 'error'); return }
+    if (addrEditId === 'new') {
+      const newAddr: Address = { id: `addr_${Date.now()}`, ...addrForm }
+      addAddress(newAddr)
+      toast('Хаяг нэмэгдлээ', 'success')
+    } else if (addrEditId) {
+      updateAddress({ id: addrEditId, ...addrForm })
+      toast('Хаяг шинэчлэгдлээ', 'success')
+    }
+    setAddrEditId(null)
+  }
+
+  function af(key: keyof AddrForm, val: string | boolean) {
+    setAddrForm(f => ({ ...f, [key]: val }))
+  }
 
   const user = state.user
   if (!user) {
@@ -256,6 +293,53 @@ export default function UserDashboard() {
             {tab === 'addresses' && (
               <div className="space-y-3">
                 <h2 className="font-serif font-bold text-xl text-ink mb-4">Хадгалагдсан хаягууд</h2>
+
+                {/* Inline add/edit form */}
+                {addrEditId !== null && (
+                  <div className="bg-white rounded-sm border border-forest p-5">
+                    <h3 className="font-serif font-semibold text-ink mb-4">{addrEditId === 'new' ? 'Шинэ хаяг нэмэх' : 'Хаяг засах'}</h3>
+                    <div className="space-y-3">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="label-mono text-ink/50 block mb-1">Шошго</label>
+                          <input value={addrForm.label} onChange={e => af('label', e.target.value)}
+                            className="w-full border border-cream-dark rounded-sm px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-lime" placeholder="Гэр" />
+                        </div>
+                        <div>
+                          <label className="label-mono text-ink/50 block mb-1">Дүүрэг</label>
+                          <select value={addrForm.district} onChange={e => af('district', e.target.value)}
+                            className="w-full border border-cream-dark rounded-sm px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-lime">
+                            {UB_DISTRICTS.map(d => <option key={d} value={d}>{d}</option>)}
+                          </select>
+                        </div>
+                      </div>
+                      <div>
+                        <label className="label-mono text-ink/50 block mb-1">Хороо</label>
+                        <input value={addrForm.khoroo} onChange={e => af('khoroo', e.target.value)}
+                          className="w-full border border-cream-dark rounded-sm px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-lime" placeholder="1-р хороо" />
+                      </div>
+                      <div>
+                        <label className="label-mono text-ink/50 block mb-1">Гудамж / Хэсэг</label>
+                        <input value={addrForm.street} onChange={e => af('street', e.target.value)}
+                          className="w-full border border-cream-dark rounded-sm px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-lime" placeholder="Энхтайвны өргөн чөлөө" />
+                      </div>
+                      <div>
+                        <label className="label-mono text-ink/50 block mb-1">Байр / Тоот</label>
+                        <input value={addrForm.building} onChange={e => af('building', e.target.value)}
+                          className="w-full border border-cream-dark rounded-sm px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-lime" placeholder="23-р байр, 45-р тоот" />
+                      </div>
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" checked={addrForm.isDefault} onChange={e => af('isDefault', e.target.checked)} className="accent-lime" />
+                        <span className="text-sm text-ink">Үндсэн хаяг болгох</span>
+                      </label>
+                    </div>
+                    <div className="flex gap-3 mt-4">
+                      <button onClick={() => setAddrEditId(null)} className="btn-outline flex-1 py-2">Болих</button>
+                      <button onClick={handleSaveAddr} className="btn-forest flex-1 py-2">Хадгалах</button>
+                    </div>
+                  </div>
+                )}
+
                 {user.addresses.map(addr => (
                   <div key={addr.id} className="bg-white rounded-sm border border-cream-dark p-4 flex items-start justify-between">
                     <div className="flex items-start gap-3">
@@ -271,18 +355,26 @@ export default function UserDashboard() {
                         <p className="text-xs text-ink/60">{addr.street}, {addr.building}</p>
                       </div>
                     </div>
-                    <button className="text-ink/30 hover:text-forest transition-colors"><Edit2 className="w-4 h-4" /></button>
+                    <div className="flex items-center gap-2">
+                      <button onClick={() => openEditAddr(addr)} className="text-ink/30 hover:text-forest transition-colors"><Edit2 className="w-4 h-4" /></button>
+                      <button onClick={() => { deleteAddress(addr.id); toast('Хаяг устгагдлаа', 'info') }} className="text-ink/30 hover:text-red-500 transition-colors"><Trash2 className="w-4 h-4" /></button>
+                    </div>
                   </div>
                 ))}
-                {user.addresses.length === 0 && (
+
+                {user.addresses.length === 0 && addrEditId === null && (
                   <div className="bg-white rounded-sm border border-cream-dark p-8 text-center">
                     <p className="text-3xl mb-3">📍</p>
                     <p className="font-serif text-lg text-ink mb-1">Хаяг байхгүй</p>
+                    <p className="text-sm text-ink/50">Доорх товчоор хаяг нэмнэ үү</p>
                   </div>
                 )}
-                <button className="btn-outline w-full py-2.5 flex items-center justify-center gap-2">
-                  <MapPin className="w-4 h-4" /> Хаяг нэмэх
-                </button>
+
+                {addrEditId === null && (
+                  <button onClick={openNewAddr} className="btn-outline w-full py-2.5 flex items-center justify-center gap-2">
+                    <Plus className="w-4 h-4" /> Хаяг нэмэх
+                  </button>
+                )}
               </div>
             )}
 

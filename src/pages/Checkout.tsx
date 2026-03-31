@@ -16,6 +16,7 @@ export default function Checkout() {
   )
   const [payment, setPayment] = useState<'cash' | 'qpay' | 'card'>('qpay')
   const [notes, setNotes] = useState('')
+  const [districtFilter, setDistrictFilter] = useState<string>('')
   const [placed, setPlaced] = useState(false)
   const [orderNum, setOrderNum] = useState('')
   const [pendingOrder, setPendingOrder] = useState<ReturnType<typeof placeOrder> | null>(null)
@@ -121,28 +122,51 @@ export default function Checkout() {
                 <h2 className="font-serif font-semibold text-ink mb-4 flex items-center gap-2">
                   <MapPin className="w-5 h-5 text-lime-dark" /> Хүргэх хаяг
                 </h2>
-                {state.user?.addresses.length === 0 ? (
-                  <p className="text-sm text-ink/50 py-4">Хадгалагдсан хаяг байхгүй байна.</p>
-                ) : (
-                  <div className="space-y-3">
-                    {state.user?.addresses.map(addr => (
-                      <label key={addr.id} className={`flex items-start gap-3 p-3 rounded-sm border cursor-pointer transition-colors ${selectedAddress?.id === addr.id ? 'border-forest bg-forest/5' : 'border-cream-dark hover:border-forest/40'}`}>
-                        <input
-                          type="radio"
-                          name="address"
-                          checked={selectedAddress?.id === addr.id}
-                          onChange={() => setSelectedAddress(addr)}
-                          className="mt-0.5 accent-lime"
-                        />
-                        <div>
-                          <p className="font-semibold text-sm text-ink">{addr.label} {addr.isDefault && <span className="label-mono text-lime-dark ml-1">Үндсэн</span>}</p>
-                          <p className="text-xs text-ink/60">{addr.district}, {addr.khoroo}</p>
-                          <p className="text-xs text-ink/60">{addr.street}, {addr.building}</p>
+                {(() => {
+                  const addrs = state.user?.addresses ?? []
+                  const districts = Array.from(new Set(addrs.map(a => a.district))).sort()
+                  const filtered = districtFilter ? addrs.filter(a => a.district === districtFilter) : addrs
+                  return addrs.length === 0 ? (
+                    <p className="text-sm text-ink/50 py-4">Хадгалагдсан хаяг байхгүй байна. Хэрэглэгчийн хэсгээс хаяг нэмнэ үү.</p>
+                  ) : (
+                    <>
+                      {districts.length > 1 && (
+                        <div className="mb-3">
+                          <label className="label-mono text-ink/50 block mb-1">Дүүргээр шүүх</label>
+                          <select
+                            value={districtFilter}
+                            onChange={e => setDistrictFilter(e.target.value)}
+                            className="border border-cream-dark bg-cream rounded-sm px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-lime"
+                          >
+                            <option value="">Бүгд ({addrs.length})</option>
+                            {districts.map(d => (
+                              <option key={d} value={d}>{d} ({addrs.filter(a => a.district === d).length})</option>
+                            ))}
+                          </select>
                         </div>
-                      </label>
-                    ))}
-                  </div>
-                )}
+                      )}
+                      <div className="space-y-3">
+                        {filtered.map(addr => (
+                          <label key={addr.id} className={`flex items-start gap-3 p-3 rounded-sm border cursor-pointer transition-colors ${selectedAddress?.id === addr.id ? 'border-forest bg-forest/5' : 'border-cream-dark hover:border-forest/40'}`}>
+                            <input
+                              type="radio"
+                              name="address"
+                              checked={selectedAddress?.id === addr.id}
+                              onChange={() => setSelectedAddress(addr)}
+                              className="mt-0.5 accent-lime"
+                            />
+                            <div>
+                              <p className="font-semibold text-sm text-ink">{addr.label} {addr.isDefault && <span className="label-mono text-lime-dark ml-1">Үндсэн</span>}</p>
+                              <p className="text-xs text-ink/60">{addr.district}, {addr.khoroo}</p>
+                              <p className="text-xs text-ink/60">{addr.street}, {addr.building}</p>
+                            </div>
+                          </label>
+                        ))}
+                        {filtered.length === 0 && <p className="text-sm text-ink/40 py-2">Энэ дүүрэгт хаяг байхгүй байна</p>}
+                      </div>
+                    </>
+                  )
+                })()}
                 <div className="mt-4">
                   <label className="label-mono text-ink/50 block mb-1.5">Нэмэлт тайлбар</label>
                   <textarea

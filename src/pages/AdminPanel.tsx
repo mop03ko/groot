@@ -1,8 +1,25 @@
 import { useState } from 'react'
-import { Package, Users, Truck, BarChart2, ShoppingBag, TrendingUp, AlertCircle, CheckCircle, Clock, Edit2, Search } from 'lucide-react'
+import { Package, Users, Truck, BarChart2, ShoppingBag, TrendingUp, CheckCircle, Clock, Edit2, Search, X, Plus } from 'lucide-react'
 import { useApp } from '../context/AppContext'
 import { DEMO_DRIVERS } from '../data/mockData'
-import type { OrderStatus } from '../types'
+import type { OrderStatus, ProductCategory } from '../types'
+
+const CATEGORY_LABELS: Record<Exclude<ProductCategory, 'all'>, string> = {
+  vegetable: 'Ногоо',
+  fruit: 'Жимс',
+  herb: 'Ногоон ургамал',
+  organic: 'Органик',
+}
+
+const EMOJIS = ['🥕','🥬','🧅','🧄','🍅','🥒','🌽','🥦','🥔','🍎','🍊','🍋','🍇','🍓','🫐','🌿','🪴','🌱','🫚','🥝']
+
+type ProductForm = {
+  name: string; nameEn: string; emoji: string
+  category: Exclude<ProductCategory, 'all'>
+  price: string; unit: string; stock: string
+  description: string; origin: string
+  discount: string; isOrganic: boolean
+}
 
 type Tab = 'dashboard' | 'orders' | 'products' | 'customers' | 'delivery'
 
@@ -24,11 +41,68 @@ const STATUS_COLORS: Record<OrderStatus, string> = {
 }
 const KANBAN_COLS: OrderStatus[] = ['pending', 'confirmed', 'preparing', 'delivering', 'delivered']
 
+const EMPTY_FORM: ProductForm = {
+  name: '', nameEn: '', emoji: '🥕', category: 'vegetable',
+  price: '', unit: 'кг', stock: '', description: '', origin: '', discount: '', isOrganic: false,
+}
+
 export default function AdminPanel() {
-  const { state, updateOrderStatus, toast } = useApp()
+  const { state, updateOrderStatus, toast, addProduct } = useApp()
   const [tab, setTab] = useState<Tab>('dashboard')
   const [orderSearch, setOrderSearch] = useState('')
   const [productSearch, setProductSearch] = useState('')
+  const [showAddProduct, setShowAddProduct] = useState(false)
+  const [editingProduct, setEditingProduct] = useState<string | null>(null)
+  const [productForm, setProductForm] = useState<ProductForm>(EMPTY_FORM)
+
+  function openAddProduct() {
+    setProductForm(EMPTY_FORM)
+    setEditingProduct(null)
+    setShowAddProduct(true)
+  }
+
+  function openEditProduct(id: string) {
+    const p = state.products.find(p => p.id === id)
+    if (!p) return
+    setProductForm({
+      name: p.name, nameEn: p.nameEn, emoji: p.emoji,
+      category: p.category, price: String(p.price), unit: p.unit,
+      stock: String(p.stock), description: p.description, origin: p.origin,
+      discount: p.discount ? String(p.discount) : '', isOrganic: p.isOrganic ?? false,
+    })
+    setEditingProduct(id)
+    setShowAddProduct(true)
+  }
+
+  function handleSaveProduct() {
+    if (!productForm.name.trim() || !productForm.price || !productForm.stock) {
+      toast('Нэр, үнэ, нөөцийг бөглөнө үү', 'error'); return
+    }
+    const product = {
+      id: editingProduct ?? `p_${Date.now()}`,
+      name: productForm.name.trim(),
+      nameEn: productForm.nameEn.trim(),
+      emoji: productForm.emoji,
+      category: productForm.category,
+      price: Number(productForm.price),
+      unit: productForm.unit || 'кг',
+      stock: Number(productForm.stock),
+      description: productForm.description,
+      origin: productForm.origin,
+      discount: productForm.discount ? Number(productForm.discount) : undefined,
+      isOrganic: productForm.isOrganic,
+      bgGradient: 'from-green-50 to-green-100',
+      rating: 5.0, reviews: 0,
+      checkedTime: '07:30', market: 'Барс зах',
+    }
+    addProduct(product)
+    setShowAddProduct(false)
+    toast(editingProduct ? 'Бүтээгдэхүүн шинэчлэгдлээ' : 'Бүтээгдэхүүн нэмэгдлээ', 'success')
+  }
+
+  function pf(key: keyof ProductForm, val: string | boolean) {
+    setProductForm(f => ({ ...f, [key]: val }))
+  }
 
   const user = state.user
   if (user?.role !== 'admin') {
@@ -64,6 +138,98 @@ export default function AdminPanel() {
 
   return (
     <div className="min-h-screen bg-cream">
+      {/* Add/Edit Product Modal */}
+      {showAddProduct && (
+        <div className="fixed inset-0 z-50 bg-ink/40 flex items-center justify-center p-4" onClick={() => setShowAddProduct(false)}>
+          <div className="bg-white rounded-sm border border-cream-dark w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-5 py-4 border-b border-cream-dark">
+              <h3 className="font-serif font-semibold text-ink">{editingProduct ? 'Бүтээгдэхүүн засах' : 'Шинэ бүтээгдэхүүн нэмэх'}</h3>
+              <button onClick={() => setShowAddProduct(false)} className="text-ink/30 hover:text-ink"><X className="w-5 h-5" /></button>
+            </div>
+            <div className="p-5 space-y-4">
+              {/* Emoji picker */}
+              <div>
+                <label className="label-mono text-ink/50 block mb-1.5">Emoji</label>
+                <div className="flex flex-wrap gap-1.5">
+                  {EMOJIS.map(e => (
+                    <button key={e} onClick={() => pf('emoji', e)}
+                      className={`text-xl px-2 py-1 rounded-sm border transition-colors ${productForm.emoji === e ? 'border-forest bg-forest/10' : 'border-cream-dark hover:border-forest/40'}`}>
+                      {e}
+                    </button>
+                  ))}
+                  <input value={productForm.emoji} onChange={e => pf('emoji', e.target.value)}
+                    className="w-16 border border-cream-dark rounded-sm px-2 py-1 text-center text-xl focus:outline-none focus:ring-2 focus:ring-lime" placeholder="✏️" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="label-mono text-ink/50 block mb-1">Нэр (МН)</label>
+                  <input value={productForm.name} onChange={e => pf('name', e.target.value)}
+                    className="w-full border border-cream-dark rounded-sm px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-lime" placeholder="Лууван" />
+                </div>
+                <div>
+                  <label className="label-mono text-ink/50 block mb-1">Нэр (EN)</label>
+                  <input value={productForm.nameEn} onChange={e => pf('nameEn', e.target.value)}
+                    className="w-full border border-cream-dark rounded-sm px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-lime" placeholder="Carrot" />
+                </div>
+              </div>
+              <div>
+                <label className="label-mono text-ink/50 block mb-1">Ангилал</label>
+                <select value={productForm.category} onChange={e => pf('category', e.target.value as Exclude<ProductCategory, 'all'>)}
+                  className="w-full border border-cream-dark rounded-sm px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-lime">
+                  {(Object.entries(CATEGORY_LABELS) as [Exclude<ProductCategory, 'all'>, string][]).map(([v, l]) => (
+                    <option key={v} value={v}>{l}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="label-mono text-ink/50 block mb-1">Үнэ (₮)</label>
+                  <input type="number" min="0" value={productForm.price} onChange={e => pf('price', e.target.value)}
+                    className="w-full border border-cream-dark rounded-sm px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-lime" placeholder="1500" />
+                </div>
+                <div>
+                  <label className="label-mono text-ink/50 block mb-1">Нэгж</label>
+                  <input value={productForm.unit} onChange={e => pf('unit', e.target.value)}
+                    className="w-full border border-cream-dark rounded-sm px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-lime" placeholder="кг" />
+                </div>
+                <div>
+                  <label className="label-mono text-ink/50 block mb-1">Нөөц</label>
+                  <input type="number" min="0" value={productForm.stock} onChange={e => pf('stock', e.target.value)}
+                    className="w-full border border-cream-dark rounded-sm px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-lime" placeholder="50" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="label-mono text-ink/50 block mb-1">Гарал үүсэл</label>
+                  <input value={productForm.origin} onChange={e => pf('origin', e.target.value)}
+                    className="w-full border border-cream-dark rounded-sm px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-lime" placeholder="Дархан" />
+                </div>
+                <div>
+                  <label className="label-mono text-ink/50 block mb-1">Хөнгөлөлт (%)</label>
+                  <input type="number" min="0" max="90" value={productForm.discount} onChange={e => pf('discount', e.target.value)}
+                    className="w-full border border-cream-dark rounded-sm px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-lime" placeholder="0" />
+                </div>
+              </div>
+              <div>
+                <label className="label-mono text-ink/50 block mb-1">Тайлбар</label>
+                <textarea value={productForm.description} onChange={e => pf('description', e.target.value)} rows={2}
+                  className="w-full border border-cream-dark rounded-sm px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-lime resize-none" placeholder="Бүтээгдэхүүний тайлбар..." />
+              </div>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" checked={productForm.isOrganic} onChange={e => pf('isOrganic', e.target.checked)} className="accent-lime" />
+                <span className="text-sm text-ink">Органик бүтээгдэхүүн</span>
+              </label>
+            </div>
+            <div className="flex gap-3 px-5 py-4 border-t border-cream-dark">
+              <button onClick={() => setShowAddProduct(false)} className="btn-outline flex-1 py-2">Болих</button>
+              <button onClick={handleSaveProduct} className="btn-forest flex-1 py-2 flex items-center justify-center gap-1">
+                <Plus className="w-4 h-4" /> {editingProduct ? 'Хадгалах' : 'Нэмэх'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {/* Header */}
       <div className="bg-forest-dark text-white py-6">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 flex items-center justify-between">
@@ -250,7 +416,7 @@ export default function AdminPanel() {
                     className="border border-cream-dark bg-white rounded-sm pl-9 pr-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-lime"
                   />
                 </div>
-                <button className="btn-forest text-sm px-4 py-2">+ Нэмэх</button>
+                <button onClick={openAddProduct} className="btn-forest text-sm px-4 py-2 flex items-center gap-1"><Plus className="w-4 h-4" /> Нэмэх</button>
               </div>
             </div>
             <div className="bg-white rounded-sm border border-cream-dark overflow-hidden">
@@ -295,7 +461,7 @@ export default function AdminPanel() {
                             )}
                           </td>
                           <td className="px-4 py-3">
-                            <button className="text-ink/30 hover:text-forest transition-colors"><Edit2 className="w-4 h-4" /></button>
+                            <button onClick={() => openEditProduct(p.id)} className="text-ink/30 hover:text-forest transition-colors"><Edit2 className="w-4 h-4" /></button>
                           </td>
                         </tr>
                       ))}
