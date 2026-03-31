@@ -19,11 +19,11 @@ export default function Login() {
     { phone: '99005678', role: 'Жолооч', icon: '🚗' },
   ]
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
     if (!phone) { setError('Утасны дугаар оруулна уу'); return }
-    const ok = login(phone)
+    const ok = await login(phone)
     if (ok) {
       toast('Амжилттай нэвтэрлээ!', 'success')
       navigate(from, { replace: true })

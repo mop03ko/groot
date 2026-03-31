@@ -14,6 +14,8 @@ export interface QPayCheckResult {
   rows: { payment_status: string }[]
 }
 
+import { getHeaders } from './api'
+
 export async function createInvoice(
   orderId: string,
   amount: number,
@@ -21,7 +23,7 @@ export async function createInvoice(
 ): Promise<QPayInvoice> {
   const res = await fetch(`${API}/invoice`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: getHeaders(),
     body: JSON.stringify({ orderId, amount, description }),
   })
   if (!res.ok) {
@@ -32,7 +34,7 @@ export async function createInvoice(
 }
 
 export async function checkPayment(invoiceId: string): Promise<QPayCheckResult> {
-  const res = await fetch(`${API}/check/${invoiceId}`)
+  const res = await fetch(`${API}/check/${invoiceId}`, { headers: getHeaders() })
   if (!res.ok) throw new Error(`QPay check error ${res.status}`)
   return res.json()
 }

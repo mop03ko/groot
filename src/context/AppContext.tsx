@@ -5,6 +5,7 @@ import type {
 } from '../types'
 import { products as allProducts } from '../data/products'
 import { DEMO_USERS, DEMO_ORDERS, DEMO_DRIVERS } from '../data/mockData'
+import { login as apiLogin, fetchMe, setAuthToken } from '../services/api'
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -286,7 +287,7 @@ function reducer(state: AppState, action: Action): AppState {
 
 interface AppContextValue {
   state: AppState
-  login: (phone: string) => boolean
+  login: (phone: string) => Promise<boolean>
   register: (name: string, phone: string, email: string) => boolean
   logout: () => void
   switchRole: (role: UserRole) => void
@@ -365,6 +366,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
     try { localStorage.setItem(key, JSON.stringify(value)) } catch { /* quota exceeded — ignore */ }
   }
 
+  useEffect(() => {
+    fetchMe().then(user => {
+      if (user) dispatch({ type: 'SET_USER', payload: user })
+    }).catch(() => {})
+  }, [])
+
   useEffect(() => { lsSet('groot_cart_v1',       state.cart)          }, [state.cart])
   useEffect(() => { lsSet('groot_products_v1',   state.products)      }, [state.products])
   useEffect(() => { lsSet('groot_categories_v1', state.categories)    }, [state.categories])
@@ -402,10 +409,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const unreadNotificationCount = state.notifications.filter(n => !n.read).length
 
-  const login = useCallback((phone: string) => {
-    const found = DEMO_USERS.find(u => u.phone === phone)
-    if (found) { dispatch({ type: 'SET_USER', payload: found }); return true }
-    return false
+  const login = useCallback(async (phone: string) => {
+    try {
+      const user = await apiLogin(phone)
+      if (user) {
+        dispatch({ type: 'SET_USER', payload: user })
+        return true
+      }
+      return false
+    } catch (e) {
+      console.error(e)
+      return false
+    }
   }, [])
 
   const register = useCallback((name: string, phone: string, email: string) => {
@@ -426,7 +441,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return true
   }, [])
 
-  const logout = useCallback(() => dispatch({ type: 'SET_USER', payload: null }), [])
+  const logout = useCallback(() => {
+    setAuthToken(null)
+    dispatch({ type: 'SET_USER', payload: null })
+  }, [])
   const switchRole = useCallback((role: UserRole) => dispatch({ type: 'SWITCH_ROLE', payload: role }), [])
 
   const addToCart = useCallback((product: Product, qty = 1) => {
