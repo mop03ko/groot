@@ -575,8 +575,8 @@ export default function AdminPanel() {
                     return (
                       <g key={day}>
                         <rect x={x - 18} y={160 - h} width={36} height={h} fill="#1A3A1F" rx="1" opacity="0.85" />
-                        <text x={x} y={170} textAnchor="middle" style={{ fontSize: 10, fill: '#1C1C1A80', fontFamily: 'monospace' }}>{day}</text>
-                        <text x={x} y={160 - h - 4} textAnchor="middle" style={{ fontSize: 9, fill: '#7AB648', fontFamily: 'monospace' }}>{vals[i]}к</text>
+                        <text x={x} y={170} textAnchor="middle" style={{ fontSize: 10, fill: '#1C1C1A80', fontFamily: '"Cera Pro", sans-serif' }}>{day}</text>
+                        <text x={x} y={160 - h - 4} textAnchor="middle" style={{ fontSize: 9, fill: '#7AB648', fontFamily: '"Cera Pro", sans-serif' }}>{vals[i]}к</text>
                       </g>
                     )
                   })}
