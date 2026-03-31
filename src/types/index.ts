@@ -1,14 +1,22 @@
 export type ProductCategory = 'vegetable' | 'fruit' | 'herb' | 'organic' | 'all'
 
+export interface ProductVariant {
+  id: string
+  name: string   // e.g. "Энгийн", "Хайрцагтай", "Уутанд"
+  price: number
+  stock?: number
+}
+
 export interface Product {
   id: string
   name: string
   nameEn: string
-  category: Exclude<ProductCategory, 'all'>
+  category: string
   price: number
   unit: string
   stock: number
   emoji: string
+  image?: string        // base64 or URL — shown instead of emoji if present
   bgGradient: string
   description: string
   origin: string
@@ -19,11 +27,15 @@ export interface Product {
   isOrganic?: boolean
   checkedTime?: string
   market?: string
+  packagedAt?: string   // е.g. "2026-03-31"
+  certifiedAt?: string  // quality cert date
+  variants?: ProductVariant[]
 }
 
 export interface CartItem {
   product: Product
   quantity: number
+  variantId?: string   // which variant is selected
 }
 
 export interface Address {
@@ -54,6 +66,7 @@ export interface OrderItem {
   quantity: number
   unit: string
   subtotal: number
+  variantName?: string
 }
 
 export interface OrderTimeline {

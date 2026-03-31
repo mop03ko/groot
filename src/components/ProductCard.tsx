@@ -19,7 +19,10 @@ export default function ProductCard({ product }: Props) {
     <div className="card group flex flex-col overflow-hidden border-t-2 border-t-transparent hover:border-t-lime transition-all duration-200">
       {/* Image */}
       <div className={`relative bg-gradient-to-br ${product.bgGradient} flex items-center justify-center h-36 select-none overflow-hidden`}>
-        <span className="text-5xl group-hover:scale-110 transition-transform duration-300">{product.emoji}</span>
+        {product.image
+          ? <img src={product.image} alt={product.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+          : <span className="text-5xl group-hover:scale-110 transition-transform duration-300">{product.emoji}</span>
+        }
 
         {/* Status badge */}
         <div className="absolute top-2 left-2 flex flex-col gap-1">

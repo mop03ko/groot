@@ -1,27 +1,9 @@
-import { useState } from 'react'
-import { Package, Users, Truck, BarChart2, ShoppingBag, TrendingUp, CheckCircle, Clock, Edit2, Search, X, Plus } from 'lucide-react'
+import { useState, useRef } from 'react'
+import { Package, Users, Truck, BarChart2, ShoppingBag, TrendingUp, CheckCircle, Clock, Edit2, Search, X, Plus, Trash2, Tag, MapPin } from 'lucide-react'
 import { useApp } from '../context/AppContext'
-import { DEMO_DRIVERS } from '../data/mockData'
-import type { OrderStatus, ProductCategory } from '../types'
+import type { OrderStatus, ProductVariant, Driver } from '../types'
 
-const CATEGORY_LABELS: Record<Exclude<ProductCategory, 'all'>, string> = {
-  vegetable: 'Ногоо',
-  fruit: 'Жимс',
-  herb: 'Ногоон ургамал',
-  organic: 'Органик',
-}
-
-const EMOJIS = ['🥕','🥬','🧅','🧄','🍅','🥒','🌽','🥦','🥔','🍎','🍊','🍋','🍇','🍓','🫐','🌿','🪴','🌱','🫚','🥝']
-
-type ProductForm = {
-  name: string; nameEn: string; emoji: string
-  category: Exclude<ProductCategory, 'all'>
-  price: string; unit: string; stock: string
-  description: string; origin: string
-  discount: string; isOrganic: boolean
-}
-
-type Tab = 'dashboard' | 'orders' | 'products' | 'customers' | 'delivery'
+type Tab = 'dashboard' | 'orders' | 'products' | 'categories' | 'customers' | 'delivery'
 
 const STATUS_LABELS: Record<OrderStatus, string> = {
   pending: 'Хүлээгдэж байна',
@@ -41,68 +23,43 @@ const STATUS_COLORS: Record<OrderStatus, string> = {
 }
 const KANBAN_COLS: OrderStatus[] = ['pending', 'confirmed', 'preparing', 'delivering', 'delivered']
 
-const EMPTY_FORM: ProductForm = {
-  name: '', nameEn: '', emoji: '🥕', category: 'vegetable',
-  price: '', unit: 'кг', stock: '', description: '', origin: '', discount: '', isOrganic: false,
+type ProductForm = {
+  name: string; nameEn: string; emoji: string; image: string
+  category: string; price: string; unit: string; stock: string
+  description: string; origin: string; discount: string; isOrganic: boolean
+  packagedAt: string; certifiedAt: string
+  variants: ProductVariant[]
 }
 
+const EMPTY_FORM: ProductForm = {
+  name: '', nameEn: '', emoji: '🥕', image: '',
+  category: 'vegetable', price: '', unit: 'кг', stock: '',
+  description: '', origin: '', discount: '', isOrganic: false,
+  packagedAt: '', certifiedAt: '', variants: [],
+}
+
+type DriverForm = { name: string; phone: string; vehicle: string }
+const EMPTY_DRIVER: DriverForm = { name: '', phone: '', vehicle: '' }
+
+// Driver assignment modal state
+type AssignState = { orderId: string; orderNum: string } | null
+
 export default function AdminPanel() {
-  const { state, updateOrderStatus, toast, addProduct } = useApp()
+  const { state, updateOrderStatus, assignDriver, toast, addProduct, updateProduct, addDriver, addCategory, updateCategory, deleteCategory } = useApp()
   const [tab, setTab] = useState<Tab>('dashboard')
   const [orderSearch, setOrderSearch] = useState('')
   const [productSearch, setProductSearch] = useState('')
   const [showAddProduct, setShowAddProduct] = useState(false)
-  const [editingProduct, setEditingProduct] = useState<string | null>(null)
+  const [editingProductId, setEditingProductId] = useState<string | null>(null)
   const [productForm, setProductForm] = useState<ProductForm>(EMPTY_FORM)
-
-  function openAddProduct() {
-    setProductForm(EMPTY_FORM)
-    setEditingProduct(null)
-    setShowAddProduct(true)
-  }
-
-  function openEditProduct(id: string) {
-    const p = state.products.find(p => p.id === id)
-    if (!p) return
-    setProductForm({
-      name: p.name, nameEn: p.nameEn, emoji: p.emoji,
-      category: p.category, price: String(p.price), unit: p.unit,
-      stock: String(p.stock), description: p.description, origin: p.origin,
-      discount: p.discount ? String(p.discount) : '', isOrganic: p.isOrganic ?? false,
-    })
-    setEditingProduct(id)
-    setShowAddProduct(true)
-  }
-
-  function handleSaveProduct() {
-    if (!productForm.name.trim() || !productForm.price || !productForm.stock) {
-      toast('Нэр, үнэ, нөөцийг бөглөнө үү', 'error'); return
-    }
-    const product = {
-      id: editingProduct ?? `p_${Date.now()}`,
-      name: productForm.name.trim(),
-      nameEn: productForm.nameEn.trim(),
-      emoji: productForm.emoji,
-      category: productForm.category,
-      price: Number(productForm.price),
-      unit: productForm.unit || 'кг',
-      stock: Number(productForm.stock),
-      description: productForm.description,
-      origin: productForm.origin,
-      discount: productForm.discount ? Number(productForm.discount) : undefined,
-      isOrganic: productForm.isOrganic,
-      bgGradient: 'from-green-50 to-green-100',
-      rating: 5.0, reviews: 0,
-      checkedTime: '07:30', market: 'Барс зах',
-    }
-    addProduct(product)
-    setShowAddProduct(false)
-    toast(editingProduct ? 'Бүтээгдэхүүн шинэчлэгдлээ' : 'Бүтээгдэхүүн нэмэгдлээ', 'success')
-  }
-
-  function pf(key: keyof ProductForm, val: string | boolean) {
-    setProductForm(f => ({ ...f, [key]: val }))
-  }
+  const [showAddDriver, setShowAddDriver] = useState(false)
+  const [driverForm, setDriverForm] = useState<DriverForm>(EMPTY_DRIVER)
+  const [assignState, setAssignState] = useState<AssignState>(null)
+  const [selectedDriverId, setSelectedDriverId] = useState('')
+  const [editingCategory, setEditingCategory] = useState<string | null>(null)
+  const [editCatValue, setEditCatValue] = useState('')
+  const [newCatValue, setNewCatValue] = useState('')
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const user = state.user
   if (user?.role !== 'admin') {
@@ -119,7 +76,6 @@ export default function AdminPanel() {
   const orders = state.orders
   const totalRevenue = orders.filter(o => o.status === 'delivered').reduce((s, o) => s + o.total, 0)
   const pendingCount = orders.filter(o => o.status === 'pending').length
-  const deliveringCount = orders.filter(o => o.status === 'delivering').length
   const deliveredCount = orders.filter(o => o.status === 'delivered').length
 
   const filteredOrders = orders.filter(o =>
@@ -130,37 +86,166 @@ export default function AdminPanel() {
 
   const TABS = [
     { id: 'dashboard', label: 'Хяналтын самбар', icon: BarChart2 },
-    { id: 'orders',    label: 'Захиалгууд',       icon: ShoppingBag },
-    { id: 'products',  label: 'Бүтээгдэхүүн',    icon: Package },
-    { id: 'customers', label: 'Хэрэглэгчид',      icon: Users },
-    { id: 'delivery',  label: 'Хүргэлт',           icon: Truck },
+    { id: 'orders',    label: 'Захиалгууд',      icon: ShoppingBag },
+    { id: 'products',  label: 'Бүтээгдэхүүн',   icon: Package },
+    { id: 'categories',label: 'Ангилал',          icon: Tag },
+    { id: 'customers', label: 'Хэрэглэгчид',     icon: Users },
+    { id: 'delivery',  label: 'Хүргэлт',          icon: Truck },
   ]
+
+  // ── Product form helpers ──────────────────────────────────────────────────
+
+  function openAddProduct() {
+    setProductForm({ ...EMPTY_FORM, category: state.categories[0] ?? 'vegetable' })
+    setEditingProductId(null)
+    setShowAddProduct(true)
+  }
+
+  function openEditProduct(id: string) {
+    const p = state.products.find(p => p.id === id)
+    if (!p) return
+    setProductForm({
+      name: p.name, nameEn: p.nameEn, emoji: p.emoji, image: p.image ?? '',
+      category: p.category, price: String(p.price), unit: p.unit,
+      stock: String(p.stock), description: p.description, origin: p.origin,
+      discount: p.discount ? String(p.discount) : '', isOrganic: p.isOrganic ?? false,
+      packagedAt: p.packagedAt ?? '', certifiedAt: p.certifiedAt ?? '',
+      variants: p.variants ? [...p.variants] : [],
+    })
+    setEditingProductId(id)
+    setShowAddProduct(true)
+  }
+
+  function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = ev => pf('image', (ev.target?.result as string) ?? '')
+    reader.readAsDataURL(file)
+  }
+
+  function handleSaveProduct() {
+    if (!productForm.name.trim() || !productForm.price || !productForm.stock) {
+      toast('Нэр, үнэ, нөөцийг бөглөнө үү', 'error'); return
+    }
+    const base = {
+      id: editingProductId ?? `p_${Date.now()}`,
+      name: productForm.name.trim(),
+      nameEn: productForm.nameEn.trim(),
+      emoji: productForm.emoji,
+      image: productForm.image || undefined,
+      category: productForm.category,
+      price: Number(productForm.price),
+      unit: productForm.unit || 'кг',
+      stock: Number(productForm.stock),
+      description: productForm.description,
+      origin: productForm.origin,
+      discount: productForm.discount ? Number(productForm.discount) : undefined,
+      isOrganic: productForm.isOrganic,
+      bgGradient: 'from-green-50 to-green-100',
+      rating: 5.0, reviews: 0,
+      checkedTime: '07:30', market: 'Барс зах',
+      packagedAt: productForm.packagedAt || undefined,
+      certifiedAt: productForm.certifiedAt || undefined,
+      variants: productForm.variants.length > 0 ? productForm.variants : undefined,
+    }
+    if (editingProductId) {
+      updateProduct(base)
+      toast('Бүтээгдэхүүн шинэчлэгдлээ', 'success')
+    } else {
+      addProduct(base)
+      toast('Бүтээгдэхүүн нэмэгдлээ', 'success')
+    }
+    setShowAddProduct(false)
+  }
+
+  function pf(key: keyof ProductForm, val: string | boolean | ProductVariant[]) {
+    setProductForm(f => ({ ...f, [key]: val }))
+  }
+
+  function addVariant() {
+    const v: ProductVariant = { id: `v_${Date.now()}`, name: '', price: Number(productForm.price) || 0 }
+    pf('variants', [...productForm.variants, v])
+  }
+
+  function updateVariant(id: string, field: 'name' | 'price', val: string) {
+    pf('variants', productForm.variants.map(v => v.id === id ? { ...v, [field]: field === 'price' ? Number(val) : val } : v))
+  }
+
+  function removeVariant(id: string) {
+    pf('variants', productForm.variants.filter(v => v.id !== id))
+  }
+
+  // ── Driver helpers ────────────────────────────────────────────────────────
+
+  function handleAddDriver() {
+    if (!driverForm.name.trim() || !driverForm.phone.trim()) { toast('Нэр, утасыг бөглөнө үү', 'error'); return }
+    addDriver({
+      id: `d_${Date.now()}`,
+      name: driverForm.name.trim(),
+      phone: driverForm.phone.trim(),
+      vehicle: driverForm.vehicle.trim(),
+      status: 'available',
+      completedToday: 0,
+      rating: 5.0,
+    })
+    setDriverForm(EMPTY_DRIVER)
+    setShowAddDriver(false)
+    toast('Жолооч нэмэгдлээ', 'success')
+  }
+
+  // ── Assign driver ─────────────────────────────────────────────────────────
+
+  function handleAssign() {
+    if (!assignState || !selectedDriverId) return
+    const driver = state.drivers.find(d => d.id === selectedDriverId)
+    if (!driver) return
+    assignDriver(assignState.orderId, driver.id, driver.name, driver.phone)
+    toast(`${driver.name} жолоочид хуваарилагдлаа`, 'success')
+    setAssignState(null)
+    setSelectedDriverId('')
+  }
+
+  const availableDrivers = state.drivers.filter(d => d.status === 'available')
 
   return (
     <div className="min-h-screen bg-cream">
+
       {/* Add/Edit Product Modal */}
       {showAddProduct && (
         <div className="fixed inset-0 z-50 bg-ink/40 flex items-center justify-center p-4" onClick={() => setShowAddProduct(false)}>
-          <div className="bg-white rounded-sm border border-cream-dark w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between px-5 py-4 border-b border-cream-dark">
-              <h3 className="font-serif font-semibold text-ink">{editingProduct ? 'Бүтээгдэхүүн засах' : 'Шинэ бүтээгдэхүүн нэмэх'}</h3>
+          <div className="bg-white rounded-sm border border-cream-dark w-full max-w-xl max-h-[92vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-5 py-4 border-b border-cream-dark sticky top-0 bg-white z-10">
+              <h3 className="font-serif font-semibold text-ink">{editingProductId ? 'Бүтээгдэхүүн засах' : 'Шинэ бүтээгдэхүүн нэмэх'}</h3>
               <button onClick={() => setShowAddProduct(false)} className="text-ink/30 hover:text-ink"><X className="w-5 h-5" /></button>
             </div>
             <div className="p-5 space-y-4">
-              {/* Emoji picker */}
+
+              {/* Image upload */}
               <div>
-                <label className="label-mono text-ink/50 block mb-1.5">Emoji</label>
-                <div className="flex flex-wrap gap-1.5">
-                  {EMOJIS.map(e => (
-                    <button key={e} onClick={() => pf('emoji', e)}
-                      className={`text-xl px-2 py-1 rounded-sm border transition-colors ${productForm.emoji === e ? 'border-forest bg-forest/10' : 'border-cream-dark hover:border-forest/40'}`}>
-                      {e}
-                    </button>
-                  ))}
-                  <input value={productForm.emoji} onChange={e => pf('emoji', e.target.value)}
-                    className="w-16 border border-cream-dark rounded-sm px-2 py-1 text-center text-xl focus:outline-none focus:ring-2 focus:ring-lime" placeholder="✏️" />
+                <label className="label-mono text-ink/50 block mb-1.5">Зураг оруулах</label>
+                <div className="flex items-center gap-3">
+                  <div className="w-20 h-20 rounded-sm border border-cream-dark bg-cream flex items-center justify-center overflow-hidden shrink-0">
+                    {productForm.image
+                      ? <img src={productForm.image} alt="" className="w-full h-full object-cover" />
+                      : <span className="text-3xl">{productForm.emoji}</span>
+                    }
+                  </div>
+                  <div className="flex flex-col gap-2 flex-1">
+                    <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
+                    <button onClick={() => fileInputRef.current?.click()} className="btn-outline text-sm py-1.5 w-full">Зураг сонгох</button>
+                    {productForm.image && (
+                      <button onClick={() => pf('image', '')} className="text-xs text-red-500 hover:text-red-700">Зураг устгах</button>
+                    )}
+                    <div className="flex items-center gap-2">
+                      <input value={productForm.emoji} onChange={e => pf('emoji', e.target.value)}
+                        className="w-16 border border-cream-dark rounded-sm px-2 py-1 text-center text-xl focus:outline-none focus:ring-2 focus:ring-lime" placeholder="🥕" />
+                      <span className="text-xs text-ink/40">Emoji (зураг байхгүй үед)</span>
+                    </div>
+                  </div>
                 </div>
               </div>
+
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="label-mono text-ink/50 block mb-1">Нэр (МН)</label>
@@ -173,15 +258,15 @@ export default function AdminPanel() {
                     className="w-full border border-cream-dark rounded-sm px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-lime" placeholder="Carrot" />
                 </div>
               </div>
+
               <div>
                 <label className="label-mono text-ink/50 block mb-1">Ангилал</label>
-                <select value={productForm.category} onChange={e => pf('category', e.target.value as Exclude<ProductCategory, 'all'>)}
+                <select value={productForm.category} onChange={e => pf('category', e.target.value)}
                   className="w-full border border-cream-dark rounded-sm px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-lime">
-                  {(Object.entries(CATEGORY_LABELS) as [Exclude<ProductCategory, 'all'>, string][]).map(([v, l]) => (
-                    <option key={v} value={v}>{l}</option>
-                  ))}
+                  {state.categories.map(c => <option key={c} value={c}>{c}</option>)}
                 </select>
               </div>
+
               <div className="grid grid-cols-3 gap-3">
                 <div>
                   <label className="label-mono text-ink/50 block mb-1">Үнэ (₮)</label>
@@ -199,6 +284,7 @@ export default function AdminPanel() {
                     className="w-full border border-cream-dark rounded-sm px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-lime" placeholder="50" />
                 </div>
               </div>
+
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="label-mono text-ink/50 block mb-1">Гарал үүсэл</label>
@@ -211,25 +297,110 @@ export default function AdminPanel() {
                     className="w-full border border-cream-dark rounded-sm px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-lime" placeholder="0" />
                 </div>
               </div>
+
+              {/* Packaged / certified dates */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="label-mono text-ink/50 block mb-1">Савласан огноо</label>
+                  <input type="date" value={productForm.packagedAt} onChange={e => pf('packagedAt', e.target.value)}
+                    className="w-full border border-cream-dark rounded-sm px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-lime" />
+                </div>
+                <div>
+                  <label className="label-mono text-ink/50 block mb-1">Баталгаажуулсан огноо</label>
+                  <input type="date" value={productForm.certifiedAt} onChange={e => pf('certifiedAt', e.target.value)}
+                    className="w-full border border-cream-dark rounded-sm px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-lime" />
+                </div>
+              </div>
+
               <div>
                 <label className="label-mono text-ink/50 block mb-1">Тайлбар</label>
                 <textarea value={productForm.description} onChange={e => pf('description', e.target.value)} rows={2}
                   className="w-full border border-cream-dark rounded-sm px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-lime resize-none" placeholder="Бүтээгдэхүүний тайлбар..." />
               </div>
+
               <label className="flex items-center gap-2 cursor-pointer">
                 <input type="checkbox" checked={productForm.isOrganic} onChange={e => pf('isOrganic', e.target.checked)} className="accent-lime" />
                 <span className="text-sm text-ink">Органик бүтээгдэхүүн</span>
               </label>
+
+              {/* Variants / Attributes */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="label-mono text-ink/50">Савлагааны сонголт (variants)</label>
+                  <button onClick={addVariant} className="text-xs text-forest hover:text-lime flex items-center gap-1 font-medium">
+                    <Plus className="w-3.5 h-3.5" /> Нэмэх
+                  </button>
+                </div>
+                {productForm.variants.length === 0 && (
+                  <p className="text-xs text-ink/30 py-2">Сонголт нэмэхгүй бол үндсэн үнэ ашиглагдана</p>
+                )}
+                <div className="space-y-2">
+                  {productForm.variants.map(v => (
+                    <div key={v.id} className="flex items-center gap-2">
+                      <input
+                        value={v.name}
+                        onChange={e => updateVariant(v.id, 'name', e.target.value)}
+                        placeholder="Жишээ: Хайрцагтай, Уутанд..."
+                        className="flex-1 border border-cream-dark rounded-sm px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-lime"
+                      />
+                      <input
+                        type="number" min="0"
+                        value={v.price}
+                        onChange={e => updateVariant(v.id, 'price', e.target.value)}
+                        placeholder="Үнэ"
+                        className="w-24 border border-cream-dark rounded-sm px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-lime"
+                      />
+                      <span className="text-sm text-ink/50">₮</span>
+                      <button onClick={() => removeVariant(v.id)} className="text-ink/30 hover:text-red-500">
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
-            <div className="flex gap-3 px-5 py-4 border-t border-cream-dark">
+
+            <div className="flex gap-3 px-5 py-4 border-t border-cream-dark sticky bottom-0 bg-white">
               <button onClick={() => setShowAddProduct(false)} className="btn-outline flex-1 py-2">Болих</button>
               <button onClick={handleSaveProduct} className="btn-forest flex-1 py-2 flex items-center justify-center gap-1">
-                <Plus className="w-4 h-4" /> {editingProduct ? 'Хадгалах' : 'Нэмэх'}
+                <Plus className="w-4 h-4" /> {editingProductId ? 'Хадгалах' : 'Нэмэх'}
               </button>
             </div>
           </div>
         </div>
       )}
+
+      {/* Assign Driver Modal */}
+      {assignState && (
+        <div className="fixed inset-0 z-50 bg-ink/40 flex items-center justify-center p-4" onClick={() => setAssignState(null)}>
+          <div className="bg-white rounded-sm border border-cream-dark w-full max-w-sm p-6" onClick={e => e.stopPropagation()}>
+            <h3 className="font-serif font-semibold text-ink mb-1">Жолооч сонгох</h3>
+            <p className="text-xs text-ink/50 mb-4">{assignState.orderNum}</p>
+            <div className="space-y-2 mb-4">
+              {state.drivers.filter(d => d.status !== 'offline').map(d => (
+                <label key={d.id} className={`flex items-center gap-3 p-3 rounded-sm border cursor-pointer transition-colors ${selectedDriverId === d.id ? 'border-forest bg-forest/5' : 'border-cream-dark hover:border-forest/40'}`}>
+                  <input type="radio" name="driver" value={d.id} checked={selectedDriverId === d.id} onChange={() => setSelectedDriverId(d.id)} className="accent-lime" />
+                  <div className="flex-1">
+                    <p className="font-semibold text-sm text-ink">{d.name}</p>
+                    <p className="text-xs text-ink/50">{d.vehicle}</p>
+                  </div>
+                  <span className={`text-xs font-mono uppercase px-2 py-0.5 rounded-sm border ${d.status === 'available' ? 'bg-lime/10 text-lime-dark border-lime/30' : 'bg-blue-50 text-blue-600 border-blue-200'}`}>
+                    {d.status === 'available' ? 'Бэлэн' : 'Хүргэлтэнд'}
+                  </span>
+                </label>
+              ))}
+              {state.drivers.filter(d => d.status !== 'offline').length === 0 && (
+                <p className="text-sm text-ink/50 text-center py-4">Бэлэн жолооч байхгүй байна</p>
+              )}
+            </div>
+            <div className="flex gap-3">
+              <button onClick={() => setAssignState(null)} className="btn-outline flex-1 py-2">Болих</button>
+              <button onClick={handleAssign} disabled={!selectedDriverId} className="btn-forest flex-1 py-2 disabled:opacity-40">Хуваарилах</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="bg-forest-dark text-white py-6">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 flex items-center justify-between">
@@ -253,9 +424,7 @@ export default function AdminPanel() {
                 key={t.id}
                 onClick={() => setTab(t.id as Tab)}
                 className={`flex items-center gap-2 px-4 py-3.5 text-sm font-medium transition-colors border-b-2 whitespace-nowrap ${
-                  tab === t.id
-                    ? 'border-lime text-white'
-                    : 'border-transparent text-white/50 hover:text-white'
+                  tab === t.id ? 'border-lime text-white' : 'border-transparent text-white/50 hover:text-white'
                 }`}
               >
                 <t.icon className="w-4 h-4" /> {t.label}
@@ -270,7 +439,6 @@ export default function AdminPanel() {
         {/* DASHBOARD */}
         {tab === 'dashboard' && (
           <div className="space-y-5">
-            {/* Stats */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               {[
                 { label: 'Нийт орлого', value: `${totalRevenue.toLocaleString()}₮`, icon: TrendingUp, color: 'text-lime-dark', bg: 'bg-lime/10' },
@@ -288,7 +456,6 @@ export default function AdminPanel() {
               ))}
             </div>
 
-            {/* Revenue chart (SVG) */}
             <div className="bg-white rounded-sm border border-cream-dark p-5">
               <h2 className="font-serif font-semibold text-ink mb-4">Орлогын график</h2>
               <div className="overflow-x-auto">
@@ -303,7 +470,7 @@ export default function AdminPanel() {
                     return (
                       <g key={day}>
                         <rect x={x - 18} y={160 - h} width={36} height={h} fill="#1A3A1F" rx="1" opacity="0.85" />
-                        <text x={x} y={170} textAnchor="middle" className="font-mono" style={{ fontSize: 10, fill: '#1C1C1A80' }}>{day}</text>
+                        <text x={x} y={170} textAnchor="middle" style={{ fontSize: 10, fill: '#1C1C1A80', fontFamily: 'monospace' }}>{day}</text>
                         <text x={x} y={160 - h - 4} textAnchor="middle" style={{ fontSize: 9, fill: '#7AB648', fontFamily: 'monospace' }}>{vals[i]}к</text>
                       </g>
                     )
@@ -312,7 +479,6 @@ export default function AdminPanel() {
               </div>
             </div>
 
-            {/* Recent orders */}
             <div className="bg-white rounded-sm border border-cream-dark p-5">
               <h2 className="font-serif font-semibold text-ink mb-4">Сүүлийн захиалгууд</h2>
               <div className="overflow-x-auto">
@@ -321,6 +487,7 @@ export default function AdminPanel() {
                     <tr className="border-b border-cream-dark">
                       <th className="label-mono text-left py-2 pr-4">Дугаар</th>
                       <th className="label-mono text-left py-2 pr-4">Хэрэглэгч</th>
+                      <th className="label-mono text-left py-2 pr-4">Хаяг</th>
                       <th className="label-mono text-left py-2 pr-4">Дүн</th>
                       <th className="label-mono text-left py-2">Төлөв</th>
                     </tr>
@@ -330,6 +497,9 @@ export default function AdminPanel() {
                       <tr key={o.id} className="hover:bg-cream/50 transition-colors">
                         <td className="py-2.5 pr-4 font-mono text-xs text-ink/60">{o.orderNumber}</td>
                         <td className="py-2.5 pr-4 font-medium text-ink">{o.customerName}</td>
+                        <td className="py-2.5 pr-4 text-xs text-ink/60">
+                          <div className="flex items-center gap-1"><MapPin className="w-3 h-3 shrink-0" />{o.deliveryAddress.district}, {o.deliveryAddress.building}</div>
+                        </td>
                         <td className="py-2.5 pr-4 font-serif font-bold text-forest">{o.total.toLocaleString()}₮</td>
                         <td className="py-2.5">
                           <span className={`text-xs font-mono uppercase px-2 py-0.5 rounded-sm border ${STATUS_COLORS[o.status]}`}>
@@ -352,12 +522,8 @@ export default function AdminPanel() {
               <h2 className="font-serif font-bold text-xl text-ink">Захиалгууд ({orders.length})</h2>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ink/30" />
-                <input
-                  placeholder="Хайх..."
-                  value={orderSearch}
-                  onChange={e => setOrderSearch(e.target.value)}
-                  className="border border-cream-dark bg-white rounded-sm pl-9 pr-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-lime"
-                />
+                <input placeholder="Хайх..." value={orderSearch} onChange={e => setOrderSearch(e.target.value)}
+                  className="border border-cream-dark bg-white rounded-sm pl-9 pr-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-lime" />
               </div>
             </div>
             <div className="bg-white rounded-sm border border-cream-dark overflow-hidden">
@@ -365,7 +531,7 @@ export default function AdminPanel() {
                 <table className="w-full text-sm">
                   <thead className="bg-cream border-b border-cream-dark">
                     <tr>
-                      {['Дугаар', 'Хэрэглэгч', 'Утас', 'Дүн', 'Хүргэлт', 'Төлөв', 'Үйлдэл'].map(h => (
+                      {['Дугаар', 'Хэрэглэгч', 'Утас', 'Хүргэх хаяг', 'Дүн', 'Хүргэлт', 'Төлөв', 'Үйлдэл'].map(h => (
                         <th key={h} className="label-mono text-left px-4 py-3">{h}</th>
                       ))}
                     </tr>
@@ -376,21 +542,30 @@ export default function AdminPanel() {
                         <td className="px-4 py-3 font-mono text-xs text-ink/60">{o.orderNumber}</td>
                         <td className="px-4 py-3 font-medium text-ink">{o.customerName}</td>
                         <td className="px-4 py-3 text-ink/60">{o.customerPhone}</td>
+                        <td className="px-4 py-3 text-xs text-ink/70 max-w-[180px]">
+                          <div className="flex items-start gap-1">
+                            <MapPin className="w-3 h-3 shrink-0 mt-0.5 text-lime-dark" />
+                            <span>{o.deliveryAddress.district}<br />{o.deliveryAddress.khoroo}, {o.deliveryAddress.building}</span>
+                          </div>
+                        </td>
                         <td className="px-4 py-3 font-serif font-bold text-forest">{o.total.toLocaleString()}₮</td>
                         <td className="px-4 py-3 text-ink/60">{o.deliveryFee === 0 ? <span className="text-lime-dark">Үнэгүй</span> : `${o.deliveryFee.toLocaleString()}₮`}</td>
                         <td className="px-4 py-3">
-                          <select
-                            value={o.status}
-                            onChange={e => { updateOrderStatus(o.id, e.target.value as OrderStatus); toast('Захиалгын төлөв шинэчлэгдлээ', 'success') }}
-                            className={`text-xs font-mono uppercase border rounded-sm px-2 py-1 ${STATUS_COLORS[o.status]} focus:outline-none`}
-                          >
+                          <select value={o.status} onChange={e => { updateOrderStatus(o.id, e.target.value as OrderStatus); toast('Төлөв шинэчлэгдлээ', 'success') }}
+                            className={`text-xs font-mono uppercase border rounded-sm px-2 py-1 ${STATUS_COLORS[o.status]} focus:outline-none`}>
                             {(Object.keys(STATUS_LABELS) as OrderStatus[]).map(s => (
                               <option key={s} value={s}>{STATUS_LABELS[s]}</option>
                             ))}
                           </select>
                         </td>
                         <td className="px-4 py-3">
-                          <button className="text-ink/30 hover:text-forest transition-colors"><Edit2 className="w-4 h-4" /></button>
+                          <button
+                            onClick={() => { setAssignState({ orderId: o.id, orderNum: o.orderNumber }); setSelectedDriverId(o.driverId ?? '') }}
+                            className="text-xs font-mono text-forest hover:text-lime border border-forest/30 hover:border-lime rounded-sm px-2 py-1 transition-colors whitespace-nowrap"
+                            title="Жолооч сонгох"
+                          >
+                            {o.driverName ? `🚗 ${o.driverName}` : '+ Жолооч'}
+                          </button>
                         </td>
                       </tr>
                     ))}
@@ -409,12 +584,8 @@ export default function AdminPanel() {
               <div className="flex gap-2">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ink/30" />
-                  <input
-                    placeholder="Хайх..."
-                    value={productSearch}
-                    onChange={e => setProductSearch(e.target.value)}
-                    className="border border-cream-dark bg-white rounded-sm pl-9 pr-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-lime"
-                  />
+                  <input placeholder="Хайх..." value={productSearch} onChange={e => setProductSearch(e.target.value)}
+                    className="border border-cream-dark bg-white rounded-sm pl-9 pr-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-lime" />
                 </div>
                 <button onClick={openAddProduct} className="btn-forest text-sm px-4 py-2 flex items-center gap-1"><Plus className="w-4 h-4" /> Нэмэх</button>
               </div>
@@ -424,7 +595,7 @@ export default function AdminPanel() {
                 <table className="w-full text-sm">
                   <thead className="bg-cream border-b border-cream-dark">
                     <tr>
-                      {['Бүтээгдэхүүн', 'Ангилал', 'Үнэ', 'Нөөц', 'Үнэлгээ', 'Төлөв', ''].map(h => (
+                      {['Бүтээгдэхүүн', 'Ангилал', 'Үнэ', 'Нөөц', 'Савласан', 'Баталгаа', 'Variants', 'Төлөв', ''].map(h => (
                         <th key={h} className="label-mono text-left px-4 py-3">{h}</th>
                       ))}
                     </tr>
@@ -436,7 +607,10 @@ export default function AdminPanel() {
                         <tr key={p.id} className="hover:bg-cream/30 transition-colors">
                           <td className="px-4 py-3">
                             <div className="flex items-center gap-2">
-                              <span className="text-xl">{p.emoji}</span>
+                              {p.image
+                                ? <img src={p.image} alt={p.name} className="w-8 h-8 rounded-sm object-cover shrink-0" />
+                                : <span className="text-xl">{p.emoji}</span>
+                              }
                               <div>
                                 <p className="font-medium text-ink">{p.name}</p>
                                 <p className="text-xs text-ink/40">{p.nameEn}</p>
@@ -446,11 +620,11 @@ export default function AdminPanel() {
                           <td className="px-4 py-3 label-mono text-ink/50">{p.category}</td>
                           <td className="px-4 py-3 font-serif font-bold text-forest">{p.price.toLocaleString()}₮/{p.unit}</td>
                           <td className="px-4 py-3">
-                            <span className={`font-mono font-bold ${p.stock === 0 ? 'text-red-500' : p.stock <= 20 ? 'text-amber-500' : 'text-forest'}`}>
-                              {p.stock}
-                            </span>
+                            <span className={`font-mono font-bold ${p.stock === 0 ? 'text-red-500' : p.stock <= 20 ? 'text-amber-500' : 'text-forest'}`}>{p.stock}</span>
                           </td>
-                          <td className="px-4 py-3 text-ink/60">⭐ {p.rating}</td>
+                          <td className="px-4 py-3 text-xs text-ink/50">{p.packagedAt ?? '—'}</td>
+                          <td className="px-4 py-3 text-xs text-ink/50">{p.certifiedAt ?? '—'}</td>
+                          <td className="px-4 py-3 text-xs text-ink/50">{p.variants ? `${p.variants.length} сонголт` : '—'}</td>
                           <td className="px-4 py-3">
                             {p.stock === 0 ? (
                               <span className="text-xs font-mono uppercase px-2 py-0.5 rounded-sm border bg-red-50 text-red-600 border-red-200">Дууссан</span>
@@ -467,6 +641,44 @@ export default function AdminPanel() {
                       ))}
                   </tbody>
                 </table>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* CATEGORIES */}
+        {tab === 'categories' && (
+          <div className="space-y-4 max-w-lg">
+            <h2 className="font-serif font-bold text-xl text-ink mb-4">Ангилал удирдах</h2>
+            <div className="bg-white rounded-sm border border-cream-dark overflow-hidden">
+              {state.categories.map(cat => (
+                <div key={cat} className="flex items-center gap-3 px-4 py-3 border-b border-cream last:border-0">
+                  {editingCategory === cat ? (
+                    <>
+                      <input value={editCatValue} onChange={e => setEditCatValue(e.target.value)}
+                        className="flex-1 border border-cream-dark rounded-sm px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-lime" />
+                      <button onClick={() => { updateCategory(cat, editCatValue.trim()); setEditingCategory(null); toast('Ангилал шинэчлэгдлээ', 'success') }}
+                        className="text-xs btn-forest px-3 py-1.5">Хадгалах</button>
+                      <button onClick={() => setEditingCategory(null)} className="text-xs btn-outline px-3 py-1.5">Болих</button>
+                    </>
+                  ) : (
+                    <>
+                      <span className="flex-1 text-sm font-medium text-ink">{cat}</span>
+                      <button onClick={() => { setEditingCategory(cat); setEditCatValue(cat) }} className="text-ink/30 hover:text-forest"><Edit2 className="w-4 h-4" /></button>
+                      <button onClick={() => { deleteCategory(cat); toast('Ангилал устгагдлаа', 'info') }} className="text-ink/30 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>
+                    </>
+                  )}
+                </div>
+              ))}
+            </div>
+            <div className="bg-white rounded-sm border border-cream-dark p-4">
+              <p className="label-mono text-ink/50 mb-2">Шинэ ангилал нэмэх</p>
+              <div className="flex gap-2">
+                <input value={newCatValue} onChange={e => setNewCatValue(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter' && newCatValue.trim()) { addCategory(newCatValue.trim()); setNewCatValue(''); toast('Ангилал нэмэгдлээ', 'success') } }}
+                  placeholder="Ангилалын нэр..." className="flex-1 border border-cream-dark rounded-sm px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-lime" />
+                <button onClick={() => { if (newCatValue.trim()) { addCategory(newCatValue.trim()); setNewCatValue(''); toast('Ангилал нэмэгдлээ', 'success') } }}
+                  className="btn-forest px-4 py-2 flex items-center gap-1 text-sm"><Plus className="w-4 h-4" /> Нэмэх</button>
               </div>
             </div>
           </div>
@@ -515,9 +727,7 @@ export default function AdminPanel() {
                         <td className="px-4 py-3 text-ink/60">{c.phone}</td>
                         <td className="px-4 py-3 font-bold text-ink">{c.orders}</td>
                         <td className="px-4 py-3 font-serif font-bold text-forest">{c.total.toLocaleString()}₮</td>
-                        <td className="px-4 py-3">
-                          <span className="badge-fresh">{c.pts.toLocaleString()} оноо</span>
-                        </td>
+                        <td className="px-4 py-3"><span className="badge-fresh">{c.pts.toLocaleString()} оноо</span></td>
                       </tr>
                     ))}
                   </tbody>
@@ -527,20 +737,50 @@ export default function AdminPanel() {
           </div>
         )}
 
-        {/* DELIVERY — Kanban */}
+        {/* DELIVERY */}
         {tab === 'delivery' && (
           <div className="space-y-4">
             <div className="flex items-center justify-between mb-2">
               <h2 className="font-serif font-bold text-xl text-ink">Хүргэлтийн удирдлага</h2>
-              <div className="flex items-center gap-2">
-                <span className="w-2 h-2 bg-lime rounded-full pulse-dot" />
-                <span className="label-mono text-ink/40">Шууд горим</span>
+              <div className="flex items-center gap-3">
+                <button onClick={() => setShowAddDriver(v => !v)} className="btn-outline text-sm px-4 py-2 flex items-center gap-1">
+                  <Plus className="w-4 h-4" /> Жолооч нэмэх
+                </button>
+                <span className="label-mono text-ink/40 flex items-center gap-1"><span className="w-2 h-2 bg-lime rounded-full pulse-dot inline-block" />Шууд горим</span>
               </div>
             </div>
 
+            {/* Add Driver Form */}
+            {showAddDriver && (
+              <div className="bg-white rounded-sm border border-forest p-5">
+                <h3 className="font-serif font-semibold text-ink mb-4">Шинэ жолооч нэмэх</h3>
+                <div className="grid grid-cols-3 gap-3 mb-4">
+                  <div>
+                    <label className="label-mono text-ink/50 block mb-1">Нэр</label>
+                    <input value={driverForm.name} onChange={e => setDriverForm(f => ({ ...f, name: e.target.value }))}
+                      className="w-full border border-cream-dark rounded-sm px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-lime" placeholder="Батаа Жолооч" />
+                  </div>
+                  <div>
+                    <label className="label-mono text-ink/50 block mb-1">Утас</label>
+                    <input value={driverForm.phone} onChange={e => setDriverForm(f => ({ ...f, phone: e.target.value }))}
+                      className="w-full border border-cream-dark rounded-sm px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-lime" placeholder="99001234" />
+                  </div>
+                  <div>
+                    <label className="label-mono text-ink/50 block mb-1">Машин</label>
+                    <input value={driverForm.vehicle} onChange={e => setDriverForm(f => ({ ...f, vehicle: e.target.value }))}
+                      className="w-full border border-cream-dark rounded-sm px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-lime" placeholder="Toyota Prius 1234УБА" />
+                  </div>
+                </div>
+                <div className="flex gap-3">
+                  <button onClick={() => setShowAddDriver(false)} className="btn-outline px-4 py-2 text-sm">Болих</button>
+                  <button onClick={handleAddDriver} className="btn-forest px-4 py-2 text-sm flex items-center gap-1"><Plus className="w-4 h-4" />Нэмэх</button>
+                </div>
+              </div>
+            )}
+
             {/* Drivers */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
-              {DEMO_DRIVERS.map(d => (
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {state.drivers.map(d => (
                 <div key={d.id} className="bg-white rounded-sm border border-cream-dark p-4">
                   <div className="flex items-center justify-between mb-2">
                     <p className="font-semibold text-ink">{d.name}</p>
@@ -552,9 +792,10 @@ export default function AdminPanel() {
                       {d.status === 'available' ? 'Бэлэн' : d.status === 'delivering' ? 'Хүргэлтэнд' : 'Офлайн'}
                     </span>
                   </div>
-                  <p className="text-xs text-ink/50 mb-1">{d.vehicle}</p>
+                  <p className="text-xs text-ink/50 mb-1">{d.vehicle || '—'}</p>
+                  <p className="text-xs text-ink/50 mb-1">{d.phone}</p>
                   <div className="flex items-center justify-between text-xs">
-                    <span className="text-ink/60">Өнөөдөр: <strong>{d.completedToday}</strong> хүргэлт</span>
+                    <span className="text-ink/60">Өнөөдөр: <strong>{d.completedToday}</strong></span>
                     <span className="text-gold">⭐ {d.rating}</span>
                   </div>
                 </div>
@@ -568,9 +809,7 @@ export default function AdminPanel() {
                 return (
                   <div key={col} className="min-w-56 flex-1">
                     <div className="flex items-center justify-between mb-2">
-                      <span className={`text-xs font-mono uppercase px-2 py-1 rounded-sm border ${STATUS_COLORS[col]}`}>
-                        {STATUS_LABELS[col]}
-                      </span>
+                      <span className={`text-xs font-mono uppercase px-2 py-1 rounded-sm border ${STATUS_COLORS[col]}`}>{STATUS_LABELS[col]}</span>
                       <span className="label-mono text-ink/40">{colOrders.length}</span>
                     </div>
                     <div className="space-y-2">
@@ -578,24 +817,34 @@ export default function AdminPanel() {
                         <div key={o.id} className="bg-white rounded-sm border border-cream-dark p-3 text-xs">
                           <p className="font-mono text-ink/50 mb-1">{o.orderNumber}</p>
                           <p className="font-semibold text-ink mb-1">{o.customerName}</p>
-                          <p className="text-ink/50">{o.items.length} бараа · {o.total.toLocaleString()}₮</p>
-                          {col !== 'delivered' && (
+                          <p className="text-ink/50 mb-1">{o.items.length} бараа · {o.total.toLocaleString()}₮</p>
+                          <p className="text-ink/40 flex items-center gap-1 mb-2">
+                            <MapPin className="w-3 h-3 shrink-0" />{o.deliveryAddress.district}
+                          </p>
+                          {o.driverName && <p className="text-blue-600 mb-1">🚗 {o.driverName}</p>}
+                          {col === 'preparing' ? (
+                            // Preparing → Delivering requires driver assignment
+                            <button
+                              onClick={() => { setAssignState({ orderId: o.id, orderNum: o.orderNumber }); setSelectedDriverId(o.driverId ?? '') }}
+                              className="mt-1 w-full bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs py-1.5 rounded-sm transition-colors font-medium"
+                            >
+                              🚗 Жолооч сонгож хүргэлтэнд гаргах →
+                            </button>
+                          ) : col !== 'delivered' ? (
                             <button
                               onClick={() => {
                                 const next = KANBAN_COLS[KANBAN_COLS.indexOf(col) + 1]
                                 if (next) { updateOrderStatus(o.id, next); toast('Төлөв шинэчлэгдлээ', 'success') }
                               }}
-                              className="mt-2 w-full bg-forest/5 hover:bg-forest/10 text-forest text-xs py-1.5 rounded-sm transition-colors font-medium"
+                              className="mt-1 w-full bg-forest/5 hover:bg-forest/10 text-forest text-xs py-1.5 rounded-sm transition-colors font-medium"
                             >
                               Дараагийн алхам →
                             </button>
-                          )}
+                          ) : null}
                         </div>
                       ))}
                       {colOrders.length === 0 && (
-                        <div className="border-2 border-dashed border-cream-dark rounded-sm py-6 text-center label-mono text-ink/20">
-                          Хоосон
-                        </div>
+                        <div className="border-2 border-dashed border-cream-dark rounded-sm py-6 text-center label-mono text-ink/20">Хоосон</div>
                       )}
                     </div>
                   </div>

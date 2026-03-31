@@ -35,7 +35,8 @@ export default function App() {
       <CartDrawer />
       <Toast />
       <Routes>
-        <Route path="/" element={<PublicLayout><Home /></PublicLayout>} />
+        <Route path="/" element={<Navigate to="/shop" replace />} />
+        <Route path="/home" element={<PublicLayout><Home /></PublicLayout>} />
         <Route path="/shop" element={<PublicLayout><Shop /></PublicLayout>} />
         <Route path="/login" element={<Login />} />
         <Route path="/checkout" element={

@@ -1,9 +1,11 @@
 import { createContext, useContext, useReducer, useEffect, useCallback, type ReactNode } from 'react'
-import type { User, Product, CartItem, Order, ToastMessage, UserRole } from '../types'
+import type { User, Product, CartItem, Order, ToastMessage, UserRole, Driver } from '../types'
 import { products as allProducts } from '../data/products'
-import { DEMO_USERS, DEMO_ORDERS } from '../data/mockData'
+import { DEMO_USERS, DEMO_ORDERS, DEMO_DRIVERS } from '../data/mockData'
 
 // ─── State ───────────────────────────────────────────────────────────────────
+
+const DEFAULT_CATEGORIES = ['vegetable', 'fruit', 'herb', 'organic']
 
 interface AppState {
   user: User | null
@@ -11,8 +13,10 @@ interface AppState {
   cart: CartItem[]
   isCartOpen: boolean
   orders: Order[]
+  drivers: Driver[]
+  categories: string[]
   toasts: ToastMessage[]
-  activeRole: UserRole // for demo role switcher
+  activeRole: UserRole
 }
 
 const initial: AppState = {
@@ -21,6 +25,8 @@ const initial: AppState = {
   cart: [],
   isCartOpen: false,
   orders: DEMO_ORDERS,
+  drivers: DEMO_DRIVERS,
+  categories: DEFAULT_CATEGORIES,
   toasts: [],
   activeRole: 'customer',
 }
@@ -38,14 +44,21 @@ type Action =
   | { type: 'CART_OPEN' }
   | { type: 'PLACE_ORDER'; payload: Order }
   | { type: 'UPDATE_ORDER_STATUS'; payload: { orderId: string; status: Order['status'] } }
+  | { type: 'ASSIGN_DRIVER'; payload: { orderId: string; driverId: string; driverName: string; driverPhone: string } }
   | { type: 'TOGGLE_FAVORITE'; payload: string }
   | { type: 'ADD_TOAST'; payload: ToastMessage }
   | { type: 'REMOVE_TOAST'; payload: string }
   | { type: 'LOAD_CART'; payload: CartItem[] }
   | { type: 'ADD_PRODUCT'; payload: Product }
+  | { type: 'UPDATE_PRODUCT'; payload: Product }
   | { type: 'ADD_ADDRESS'; payload: import('../types').Address }
   | { type: 'UPDATE_ADDRESS'; payload: import('../types').Address }
   | { type: 'DELETE_ADDRESS'; payload: string }
+  | { type: 'ADD_DRIVER'; payload: Driver }
+  | { type: 'UPDATE_DRIVER'; payload: Driver }
+  | { type: 'ADD_CATEGORY'; payload: string }
+  | { type: 'UPDATE_CATEGORY'; payload: { old: string; next: string } }
+  | { type: 'DELETE_CATEGORY'; payload: string }
 
 function reducer(state: AppState, action: Action): AppState {
   switch (action.type) {
@@ -106,6 +119,19 @@ function reducer(state: AppState, action: Action): AppState {
         ),
       }
 
+    case 'ASSIGN_DRIVER':
+      return {
+        ...state,
+        orders: state.orders.map(o =>
+          o.id === action.payload.orderId
+            ? { ...o, status: 'delivering', driverId: action.payload.driverId, driverName: action.payload.driverName, driverPhone: action.payload.driverPhone }
+            : o
+        ),
+        drivers: state.drivers.map(d =>
+          d.id === action.payload.driverId ? { ...d, status: 'delivering', currentOrderId: action.payload.orderId } : d
+        ),
+      }
+
     case 'TOGGLE_FAVORITE': {
       if (!state.user) return state
       const favs = state.user.favoriteIds
@@ -127,6 +153,9 @@ function reducer(state: AppState, action: Action): AppState {
     case 'ADD_PRODUCT':
       return { ...state, products: [...state.products, action.payload] }
 
+    case 'UPDATE_PRODUCT':
+      return { ...state, products: state.products.map(p => p.id === action.payload.id ? action.payload : p) }
+
     case 'ADD_ADDRESS':
       if (!state.user) return state
       return { ...state, user: { ...state.user, addresses: [...state.user.addresses, action.payload] } }
@@ -145,6 +174,22 @@ function reducer(state: AppState, action: Action): AppState {
       if (!state.user) return state
       return { ...state, user: { ...state.user, addresses: state.user.addresses.filter(a => a.id !== action.payload) } }
 
+    case 'ADD_DRIVER':
+      return { ...state, drivers: [...state.drivers, action.payload] }
+
+    case 'UPDATE_DRIVER':
+      return { ...state, drivers: state.drivers.map(d => d.id === action.payload.id ? action.payload : d) }
+
+    case 'ADD_CATEGORY':
+      if (state.categories.includes(action.payload)) return state
+      return { ...state, categories: [...state.categories, action.payload] }
+
+    case 'UPDATE_CATEGORY':
+      return { ...state, categories: state.categories.map(c => c === action.payload.old ? action.payload.next : c) }
+
+    case 'DELETE_CATEGORY':
+      return { ...state, categories: state.categories.filter(c => c !== action.payload) }
+
     default:
       return state
   }
@@ -154,11 +199,9 @@ function reducer(state: AppState, action: Action): AppState {
 
 interface AppContextValue {
   state: AppState
-  // Auth
   login: (phone: string) => boolean
   logout: () => void
   switchRole: (role: UserRole) => void
-  // Cart
   addToCart: (product: Product, qty?: number) => void
   removeFromCart: (productId: string) => void
   updateCartQty: (productId: string, qty: number) => void
@@ -168,21 +211,23 @@ interface AppContextValue {
   cartTotal: number
   cartCount: number
   deliveryFee: number
-  // Orders
   placeOrder: (address: import('../types').Address, payment: Order['paymentMethod']) => Order
   updateOrderStatus: (orderId: string, status: Order['status']) => void
+  assignDriver: (orderId: string, driverId: string, driverName: string, driverPhone: string) => void
   myOrders: Order[]
-  // Favorites
   toggleFavorite: (productId: string) => void
   isFavorite: (productId: string) => boolean
-  // Toast
   toast: (message: string, type?: ToastMessage['type']) => void
-  // Products (admin)
   addProduct: (product: Product) => void
-  // Addresses
+  updateProduct: (product: Product) => void
   addAddress: (address: import('../types').Address) => void
   updateAddress: (address: import('../types').Address) => void
   deleteAddress: (id: string) => void
+  addDriver: (driver: Driver) => void
+  updateDriver: (driver: Driver) => void
+  addCategory: (name: string) => void
+  updateCategory: (old: string, next: string) => void
+  deleteCategory: (name: string) => void
 }
 
 const AppContext = createContext<AppContextValue | null>(null)
@@ -191,23 +236,18 @@ const AppContext = createContext<AppContextValue | null>(null)
 
 export function AppProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(reducer, initial, (init) => {
-    // Auto-login as customer for demo
     const user = DEMO_USERS.find(u => u.role === 'customer') ?? null
     try {
       const savedCart = localStorage.getItem('groot_cart_v1')
-      if (savedCart) {
-        return { ...init, user, cart: JSON.parse(savedCart) }
-      }
+      if (savedCart) return { ...init, user, cart: JSON.parse(savedCart) }
     } catch { /* ignore */ }
     return { ...init, user }
   })
 
-  // Persist cart
   useEffect(() => {
     localStorage.setItem('groot_cart_v1', JSON.stringify(state.cart))
   }, [state.cart])
 
-  // Auto-remove toasts
   useEffect(() => {
     if (state.toasts.length === 0) return
     const id = state.toasts[state.toasts.length - 1].id
@@ -216,10 +256,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [state.toasts])
 
   const cartTotal = state.cart.reduce((sum, i) => {
-    const effectivePrice = i.product.discount
-      ? Math.round(i.product.price * (1 - i.product.discount / 100))
-      : i.product.price
-    return sum + effectivePrice * i.quantity
+    const ep = i.product.discount ? Math.round(i.product.price * (1 - i.product.discount / 100)) : i.product.price
+    return sum + ep * i.quantity
   }, 0)
   const cartCount = state.cart.reduce((sum, i) => sum + i.quantity, 0)
   const deliveryFee = cartTotal >= 50000 ? 0 : 3000
@@ -289,23 +327,25 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const updateOrderStatus = useCallback((orderId: string, status: Order['status']) =>
     dispatch({ type: 'UPDATE_ORDER_STATUS', payload: { orderId, status } }), [])
 
-  const myOrders = state.user
-    ? state.orders.filter(o => o.customerId === state.user!.id)
-    : []
+  const assignDriver = useCallback((orderId: string, driverId: string, driverName: string, driverPhone: string) =>
+    dispatch({ type: 'ASSIGN_DRIVER', payload: { orderId, driverId, driverName, driverPhone } }), [])
 
-  const toggleFavorite = useCallback((productId: string) => {
-    dispatch({ type: 'TOGGLE_FAVORITE', payload: productId })
-  }, [])
+  const myOrders = state.user ? state.orders.filter(o => o.customerId === state.user!.id) : []
+
+  const toggleFavorite = useCallback((productId: string) =>
+    dispatch({ type: 'TOGGLE_FAVORITE', payload: productId }), [])
 
   const isFavorite = useCallback((productId: string) =>
     state.user?.favoriteIds.includes(productId) ?? false, [state.user])
 
-  const toast = useCallback((message: string, type: ToastMessage['type'] = 'info') => {
-    dispatch({ type: 'ADD_TOAST', payload: { id: Date.now().toString(), message, type } })
-  }, [])
+  const toast = useCallback((message: string, type: ToastMessage['type'] = 'info') =>
+    dispatch({ type: 'ADD_TOAST', payload: { id: Date.now().toString(), message, type } }), [])
 
   const addProduct = useCallback((product: Product) =>
     dispatch({ type: 'ADD_PRODUCT', payload: product }), [])
+
+  const updateProduct = useCallback((product: Product) =>
+    dispatch({ type: 'UPDATE_PRODUCT', payload: product }), [])
 
   const addAddress = useCallback((address: import('../types').Address) =>
     dispatch({ type: 'ADD_ADDRESS', payload: address }), [])
@@ -316,17 +356,34 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const deleteAddress = useCallback((id: string) =>
     dispatch({ type: 'DELETE_ADDRESS', payload: id }), [])
 
+  const addDriver = useCallback((driver: Driver) =>
+    dispatch({ type: 'ADD_DRIVER', payload: driver }), [])
+
+  const updateDriver = useCallback((driver: Driver) =>
+    dispatch({ type: 'UPDATE_DRIVER', payload: driver }), [])
+
+  const addCategory = useCallback((name: string) =>
+    dispatch({ type: 'ADD_CATEGORY', payload: name }), [])
+
+  const updateCategory = useCallback((old: string, next: string) =>
+    dispatch({ type: 'UPDATE_CATEGORY', payload: { old, next } }), [])
+
+  const deleteCategory = useCallback((name: string) =>
+    dispatch({ type: 'DELETE_CATEGORY', payload: name }), [])
+
   return (
     <AppContext.Provider value={{
       state,
       login, logout, switchRole,
       addToCart, removeFromCart, updateCartQty, clearCart, toggleCart, openCart,
       cartTotal, cartCount, deliveryFee,
-      placeOrder, updateOrderStatus, myOrders,
+      placeOrder, updateOrderStatus, assignDriver, myOrders,
       toggleFavorite, isFavorite,
       toast,
-      addProduct,
+      addProduct, updateProduct,
       addAddress, updateAddress, deleteAddress,
+      addDriver, updateDriver,
+      addCategory, updateCategory, deleteCategory,
     }}>
       {children}
     </AppContext.Provider>
