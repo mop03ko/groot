@@ -340,8 +340,22 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(reducer, initial, (init) => {
     const user = DEMO_USERS.find(u => u.role === 'customer') ?? null
     try {
-      const savedCart = localStorage.getItem('groot_cart_v1')
-      if (savedCart) return { ...init, user, cart: JSON.parse(savedCart) }
+      const savedCart       = localStorage.getItem('groot_cart_v1')
+      const savedProducts   = localStorage.getItem('groot_products_v1')
+      const savedCategories = localStorage.getItem('groot_categories_v1')
+      const savedBank       = localStorage.getItem('groot_bank_v1')
+      const savedZones      = localStorage.getItem('groot_zones_v1')
+      const savedCodes      = localStorage.getItem('groot_codes_v1')
+      return {
+        ...init,
+        user,
+        cart:          savedCart       ? JSON.parse(savedCart)       : init.cart,
+        products:      savedProducts   ? JSON.parse(savedProducts)   : init.products,
+        categories:    savedCategories ? JSON.parse(savedCategories) : init.categories,
+        bankSettings:  savedBank       ? JSON.parse(savedBank)       : init.bankSettings,
+        deliveryZones: savedZones      ? JSON.parse(savedZones)      : init.deliveryZones,
+        discountCodes: savedCodes      ? JSON.parse(savedCodes)      : init.discountCodes,
+      }
     } catch { /* ignore */ }
     return { ...init, user }
   })
@@ -349,6 +363,26 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     localStorage.setItem('groot_cart_v1', JSON.stringify(state.cart))
   }, [state.cart])
+
+  useEffect(() => {
+    localStorage.setItem('groot_products_v1', JSON.stringify(state.products))
+  }, [state.products])
+
+  useEffect(() => {
+    localStorage.setItem('groot_categories_v1', JSON.stringify(state.categories))
+  }, [state.categories])
+
+  useEffect(() => {
+    localStorage.setItem('groot_bank_v1', JSON.stringify(state.bankSettings))
+  }, [state.bankSettings])
+
+  useEffect(() => {
+    localStorage.setItem('groot_zones_v1', JSON.stringify(state.deliveryZones))
+  }, [state.deliveryZones])
+
+  useEffect(() => {
+    localStorage.setItem('groot_codes_v1', JSON.stringify(state.discountCodes))
+  }, [state.discountCodes])
 
   useEffect(() => {
     if (state.toasts.length === 0) return
