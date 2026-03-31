@@ -21,7 +21,7 @@ export default function Checkout() {
   const [pendingOrder, setPendingOrder] = useState<ReturnType<typeof placeOrder> | null>(null)
   const [showQPay, setShowQPay] = useState(false)
 
-  if (state.cart.length === 0 && !placed) {
+  if (state.cart.length === 0 && !placed && !showQPay) {
     return (
       <div className="min-h-screen bg-cream flex items-center justify-center text-center px-4">
         <div>
