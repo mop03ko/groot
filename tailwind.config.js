@@ -36,9 +36,9 @@ export default {
         },
       },
       fontFamily: {
-        sans: ['"Cera Pro"', 'system-ui', '-apple-system', 'sans-serif'],
+        sans:  ['"Cera Pro"', 'system-ui', '-apple-system', 'sans-serif'],
         serif: ['"Cera Pro"', 'system-ui', '-apple-system', 'sans-serif'],
-        mono: ['"Cera Pro"', 'monospace'],
+        mono:  ['"Cera Pro"', 'ui-monospace', 'SFMono-Regular', 'monospace'],
       },
     },
   },

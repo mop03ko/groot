@@ -3,6 +3,7 @@
 @tailwind utilities;
 
 /* ── Cera Pro ──────────────────────────────────────────── */
+/* 300 — Light */
 @font-face {
   font-family: 'Cera Pro';
   src: url('/fonts/CeraPro-Light.otf') format('opentype');
@@ -10,13 +11,15 @@
   font-style: normal;
   font-display: swap;
 }
+/* 400 — Medium (Regular файл байхгүй тул Medium ашиглана) */
 @font-face {
   font-family: 'Cera Pro';
   src: url('/fonts/CeraPro-Medium.otf') format('opentype');
-  font-weight: 400 500;
+  font-weight: 400;
   font-style: normal;
   font-display: swap;
 }
+/* 400 italic */
 @font-face {
   font-family: 'Cera Pro';
   src: url('/fonts/CeraPro-RegularItalic.otf') format('opentype');
@@ -24,6 +27,23 @@
   font-style: italic;
   font-display: swap;
 }
+/* 500 — Medium */
+@font-face {
+  font-family: 'Cera Pro';
+  src: url('/fonts/CeraPro-Medium.otf') format('opentype');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+/* 600 — Bold (SemiBold файл байхгүй тул Bold ашиглана) */
+@font-face {
+  font-family: 'Cera Pro';
+  src: url('/fonts/CeraPro-Bold.otf') format('opentype');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+/* 700 — Bold */
 @font-face {
   font-family: 'Cera Pro';
   src: url('/fonts/CeraPro-Bold.otf') format('opentype');
@@ -31,6 +51,7 @@
   font-style: normal;
   font-display: swap;
 }
+/* 900 — Black */
 @font-face {
   font-family: 'Cera Pro';
   src: url('/fonts/CeraPro-Black.otf') format('opentype');
@@ -38,6 +59,7 @@
   font-style: normal;
   font-display: swap;
 }
+/* 900 italic */
 @font-face {
   font-family: 'Cera Pro';
   src: url('/fonts/CeraPro-BlackItalic.otf') format('opentype');
