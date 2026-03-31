@@ -70,7 +70,7 @@ const initial: AppState = {
 type Action =
   | { type: 'SET_USER'; payload: User | null }
   | { type: 'SWITCH_ROLE'; payload: UserRole }
-  | { type: 'CART_ADD'; payload: { product: Product; qty: number } }
+  | { type: 'CART_ADD'; payload: { product: Product; qty: number; variantId?: string } }
   | { type: 'CART_REMOVE'; payload: string }
   | { type: 'CART_UPDATE_QTY'; payload: { productId: string; qty: number } }
   | { type: 'CART_CLEAR' }
@@ -115,18 +115,18 @@ function reducer(state: AppState, action: Action): AppState {
     }
 
     case 'CART_ADD': {
-      const existing = state.cart.find(i => i.product.id === action.payload.product.id)
+      const existing = state.cart.find(i => i.product.id === action.payload.product.id && i.variantId === action.payload.variantId)
       if (existing) {
         return {
           ...state,
           cart: state.cart.map(i =>
-            i.product.id === action.payload.product.id
+            i.product.id === action.payload.product.id && i.variantId === action.payload.variantId
               ? { ...i, quantity: i.quantity + action.payload.qty }
               : i
           ),
         }
       }
-      return { ...state, cart: [...state.cart, { product: action.payload.product, quantity: action.payload.qty }] }
+      return { ...state, cart: [...state.cart, { product: action.payload.product, quantity: action.payload.qty, variantId: action.payload.variantId }] }
     }
 
     case 'CART_REMOVE':
@@ -291,7 +291,7 @@ interface AppContextValue {
   register: (name: string, phone: string, email: string) => boolean
   logout: () => void
   switchRole: (role: UserRole) => void
-  addToCart: (product: Product, qty?: number) => void
+  addToCart: (product: Product, qty?: number, variantId?: string) => void
   removeFromCart: (productId: string) => void
   updateCartQty: (productId: string, qty: number) => void
   clearCart: () => void
@@ -447,8 +447,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [])
   const switchRole = useCallback((role: UserRole) => dispatch({ type: 'SWITCH_ROLE', payload: role }), [])
 
-  const addToCart = useCallback((product: Product, qty = 1) => {
-    dispatch({ type: 'CART_ADD', payload: { product, qty } })
+  const addToCart = useCallback((product: Product, qty = 1, variantId?: string) => {
+    dispatch({ type: 'CART_ADD', payload: { product, qty, variantId } })
     dispatch({ type: 'ADD_TOAST', payload: { id: Date.now().toString(), message: `${product.name} сагсанд нэмэгдлээ`, type: 'success' } })
   }, [])
   const removeFromCart = useCallback((id: string) => dispatch({ type: 'CART_REMOVE', payload: id }), [])

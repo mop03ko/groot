@@ -159,9 +159,7 @@ export default function AdminPanel() {
     if (!file.type.startsWith('image/')) {
       toast('Зөвхөн зураг файл оруулна уу', 'error'); return
     }
-    if (file.size > 8 * 1024 * 1024) {
-      toast('Зураг 8MB-аас их байна', 'error'); return
-    }
+
     const img = new Image()
     const url = URL.createObjectURL(file)
     img.onload = () => {
