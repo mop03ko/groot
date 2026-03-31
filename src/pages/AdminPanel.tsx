@@ -1,9 +1,9 @@
 import { useState, useRef } from 'react'
-import { Package, Users, Truck, BarChart2, ShoppingBag, TrendingUp, CheckCircle, Clock, Edit2, Search, X, Plus, Trash2, Tag, MapPin } from 'lucide-react'
+import { Package, Users, Truck, BarChart2, ShoppingBag, TrendingUp, CheckCircle, Clock, Edit2, Search, X, Plus, Trash2, Tag, MapPin, Settings, Building2 } from 'lucide-react'
 import { useApp } from '../context/AppContext'
-import type { OrderStatus, ProductVariant, Driver } from '../types'
+import type { OrderStatus, ProductVariant, Driver, DiscountCode } from '../types'
 
-type Tab = 'dashboard' | 'orders' | 'products' | 'categories' | 'customers' | 'delivery'
+type Tab = 'dashboard' | 'orders' | 'products' | 'categories' | 'customers' | 'delivery' | 'discounts' | 'settings'
 
 const STATUS_LABELS: Record<OrderStatus, string> = {
   pending: 'Хүлээгдэж байна',
@@ -29,6 +29,8 @@ type ProductForm = {
   description: string; origin: string; discount: string; isOrganic: boolean
   packagedAt: string; certifiedAt: string
   variants: ProductVariant[]
+  bgGradient: string; isFeatured: boolean
+  wholesalePrice: string; minWholesaleQty: string; freeDelivery: boolean
 }
 
 const EMPTY_FORM: ProductForm = {
@@ -36,6 +38,8 @@ const EMPTY_FORM: ProductForm = {
   category: 'vegetable', price: '', unit: 'кг', stock: '',
   description: '', origin: '', discount: '', isOrganic: false,
   packagedAt: '', certifiedAt: '', variants: [],
+  bgGradient: 'from-green-50 to-green-100', isFeatured: false,
+  wholesalePrice: '', minWholesaleQty: '', freeDelivery: false,
 }
 
 type DriverForm = { name: string; phone: string; vehicle: string }
@@ -45,7 +49,12 @@ const EMPTY_DRIVER: DriverForm = { name: '', phone: '', vehicle: '' }
 type AssignState = { orderId: string; orderNum: string } | null
 
 export default function AdminPanel() {
-  const { state, updateOrderStatus, assignDriver, toast, addProduct, updateProduct, addDriver, addCategory, updateCategory, deleteCategory } = useApp()
+  const {
+    state, updateOrderStatus, assignDriver, toast,
+    addProduct, updateProduct, addDriver, addCategory, updateCategory, deleteCategory,
+    addDiscountCode, updateDiscountCode, deleteDiscountCode,
+    updateBankSettings, updateDeliveryZones,
+  } = useApp()
   const [tab, setTab] = useState<Tab>('dashboard')
   const [orderSearch, setOrderSearch] = useState('')
   const [productSearch, setProductSearch] = useState('')
@@ -60,6 +69,27 @@ export default function AdminPanel() {
   const [editCatValue, setEditCatValue] = useState('')
   const [newCatValue, setNewCatValue] = useState('')
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Discount code form
+  type DiscountForm = {
+    code: string; type: 'percent' | 'amount'; value: string
+    scope: 'all' | 'category' | 'products'
+    categoryTarget: string; productIds: string
+    usageLimit: string; expiresAt: string; isActive: boolean
+  }
+  const EMPTY_DISCOUNT: DiscountForm = {
+    code: '', type: 'percent', value: '', scope: 'all',
+    categoryTarget: '', productIds: '', usageLimit: '', expiresAt: '', isActive: true,
+  }
+  const [showDiscountForm, setShowDiscountForm] = useState(false)
+  const [editingDiscountId, setEditingDiscountId] = useState<string | null>(null)
+  const [discountForm, setDiscountForm] = useState<DiscountForm>(EMPTY_DISCOUNT)
+  const df = (key: keyof DiscountForm, val: string | boolean) =>
+    setDiscountForm(f => ({ ...f, [key]: val }))
+
+  // Settings
+  const [bankEdit, setBankEdit] = useState(state.bankSettings)
+  const [zoneEdits, setZoneEdits] = useState(state.deliveryZones)
 
   const user = state.user
   if (user?.role !== 'admin') {
@@ -85,12 +115,14 @@ export default function AdminPanel() {
   )
 
   const TABS = [
-    { id: 'dashboard', label: 'Хяналтын самбар', icon: BarChart2 },
-    { id: 'orders',    label: 'Захиалгууд',      icon: ShoppingBag },
-    { id: 'products',  label: 'Бүтээгдэхүүн',   icon: Package },
-    { id: 'categories',label: 'Ангилал',          icon: Tag },
-    { id: 'customers', label: 'Хэрэглэгчид',     icon: Users },
-    { id: 'delivery',  label: 'Хүргэлт',          icon: Truck },
+    { id: 'dashboard',  label: 'Хяналтын самбар', icon: BarChart2 },
+    { id: 'orders',     label: 'Захиалгууд',      icon: ShoppingBag },
+    { id: 'products',   label: 'Бүтээгдэхүүн',   icon: Package },
+    { id: 'categories', label: 'Ангилал',          icon: Tag },
+    { id: 'customers',  label: 'Хэрэглэгчид',     icon: Users },
+    { id: 'delivery',   label: 'Хүргэлт',          icon: Truck },
+    { id: 'discounts',  label: 'Хөнгөлөлт',        icon: Tag },
+    { id: 'settings',   label: 'Тохиргоо',         icon: Settings },
   ]
 
   // ── Product form helpers ──────────────────────────────────────────────────
@@ -111,6 +143,11 @@ export default function AdminPanel() {
       discount: p.discount ? String(p.discount) : '', isOrganic: p.isOrganic ?? false,
       packagedAt: p.packagedAt ?? '', certifiedAt: p.certifiedAt ?? '',
       variants: p.variants ? [...p.variants] : [],
+      bgGradient: p.bgGradient || 'from-green-50 to-green-100',
+      isFeatured: p.isFeatured ?? false,
+      wholesalePrice: p.wholesalePrice ? String(p.wholesalePrice) : '',
+      minWholesaleQty: p.minWholesaleQty ? String(p.minWholesaleQty) : '',
+      freeDelivery: p.freeDelivery ?? false,
     })
     setEditingProductId(id)
     setShowAddProduct(true)
@@ -142,12 +179,15 @@ export default function AdminPanel() {
       origin: productForm.origin,
       discount: productForm.discount ? Number(productForm.discount) : undefined,
       isOrganic: productForm.isOrganic,
-      bgGradient: 'from-green-50 to-green-100',
+      isFeatured: productForm.isFeatured,
+      bgGradient: productForm.bgGradient || 'from-green-50 to-green-100',
       rating: 5.0, reviews: 0,
-      checkedTime: '07:30', market: 'Барс зах',
       packagedAt: productForm.packagedAt || undefined,
       certifiedAt: productForm.certifiedAt || undefined,
       variants: productForm.variants.length > 0 ? productForm.variants : undefined,
+      wholesalePrice: productForm.wholesalePrice ? Number(productForm.wholesalePrice) : undefined,
+      minWholesaleQty: productForm.minWholesaleQty ? Number(productForm.minWholesaleQty) : undefined,
+      freeDelivery: productForm.freeDelivery || undefined,
     }
     if (editingProductId) {
       updateProduct(base)
@@ -318,10 +358,32 @@ export default function AdminPanel() {
                   className="w-full border border-cream-dark rounded-sm px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-lime resize-none" placeholder="Бүтээгдэхүүний тайлбар..." />
               </div>
 
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input type="checkbox" checked={productForm.isOrganic} onChange={e => pf('isOrganic', e.target.checked)} className="accent-lime" />
-                <span className="text-sm text-ink">Органик бүтээгдэхүүн</span>
-              </label>
+              <div className="flex flex-wrap gap-4">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" checked={productForm.isOrganic} onChange={e => pf('isOrganic', e.target.checked)} className="accent-lime" />
+                  <span className="text-sm text-ink">Органик бүтээгдэхүүн</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" checked={productForm.freeDelivery} onChange={e => pf('freeDelivery', e.target.checked)} className="accent-lime" />
+                  <span className="text-sm text-ink">Үнэгүй хүргэлт</span>
+                </label>
+              </div>
+
+              {/* Wholesale price */}
+              <div>
+                <label className="label-mono text-ink/50 block mb-1.5">Бөөний үнэ (заавал биш)</label>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <input type="number" min="0" value={productForm.wholesalePrice} onChange={e => pf('wholesalePrice', e.target.value)}
+                      className="w-full border border-cream-dark rounded-sm px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-lime" placeholder="Бөөний үнэ (₮)" />
+                  </div>
+                  <div>
+                    <input type="number" min="1" value={productForm.minWholesaleQty} onChange={e => pf('minWholesaleQty', e.target.value)}
+                      className="w-full border border-cream-dark rounded-sm px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-lime" placeholder="Мин. тоо хэмжээ" />
+                  </div>
+                </div>
+                <p className="text-xs text-ink/30 mt-1">Тоо хэмжээ хүрсэн үед бөөний үнэ идэвхжинэ</p>
+              </div>
 
               {/* Variants / Attributes */}
               <div>
@@ -850,6 +912,230 @@ export default function AdminPanel() {
                   </div>
                 )
               })}
+            </div>
+          </div>
+        )}
+
+        {/* DISCOUNTS */}
+        {tab === 'discounts' && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="font-serif font-bold text-xl text-ink">Хөнгөлөлтийн кодууд</h2>
+              <button onClick={() => { setDiscountForm(EMPTY_DISCOUNT); setEditingDiscountId(null); setShowDiscountForm(true) }}
+                className="btn-forest text-sm flex items-center gap-1.5">
+                <Plus className="w-4 h-4" /> Код нэмэх
+              </button>
+            </div>
+
+            {/* Discount code form */}
+            {showDiscountForm && (
+              <div className="bg-white rounded-sm border border-cream-dark p-5">
+                <h3 className="font-serif font-semibold text-ink mb-4">{editingDiscountId ? 'Код засах' : 'Шинэ код нэмэх'}</h3>
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="label-mono text-ink/50 block mb-1">Код</label>
+                    <input value={discountForm.code} onChange={e => df('code', e.target.value.toUpperCase())}
+                      className="w-full border border-cream-dark rounded-sm px-3 py-2 text-sm font-mono uppercase focus:outline-none focus:ring-2 focus:ring-lime" placeholder="GROOT20" />
+                  </div>
+                  <div>
+                    <label className="label-mono text-ink/50 block mb-1">Утга</label>
+                    <input type="number" min="0" value={discountForm.value} onChange={e => df('value', e.target.value)}
+                      className="w-full border border-cream-dark rounded-sm px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-lime" placeholder="20" />
+                  </div>
+                  <div>
+                    <label className="label-mono text-ink/50 block mb-1.5">Төрөл</label>
+                    <div className="flex gap-3">
+                      {([['percent', '% хувь'], ['amount', '₮ тоо']] as const).map(([v, l]) => (
+                        <label key={v} className="flex items-center gap-1.5 cursor-pointer text-sm">
+                          <input type="radio" name="dctype" value={v} checked={discountForm.type === v} onChange={() => df('type', v)} className="accent-lime" />
+                          {l}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="label-mono text-ink/50 block mb-1.5">Хамрах хүрээ</label>
+                    <div className="flex gap-3 flex-wrap">
+                      {([['all', 'Бүгд'], ['category', 'Ангилал'], ['products', 'Бүтээгдэхүүн']] as const).map(([v, l]) => (
+                        <label key={v} className="flex items-center gap-1.5 cursor-pointer text-sm">
+                          <input type="radio" name="dcscope" value={v} checked={discountForm.scope === v} onChange={() => df('scope', v)} className="accent-lime" />
+                          {l}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                  {discountForm.scope === 'category' && (
+                    <div>
+                      <label className="label-mono text-ink/50 block mb-1">Ангилал сонгох</label>
+                      <select value={discountForm.categoryTarget} onChange={e => df('categoryTarget', e.target.value)}
+                        className="w-full border border-cream-dark rounded-sm px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-lime">
+                        {state.categories.map(c => <option key={c} value={c}>{c}</option>)}
+                      </select>
+                    </div>
+                  )}
+                  {discountForm.scope === 'products' && (
+                    <div>
+                      <label className="label-mono text-ink/50 block mb-1">Бүтээгдэхүүний ID (таслалаар)</label>
+                      <input value={discountForm.productIds} onChange={e => df('productIds', e.target.value)}
+                        className="w-full border border-cream-dark rounded-sm px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-lime" placeholder="p1, p5, p13" />
+                    </div>
+                  )}
+                  <div>
+                    <label className="label-mono text-ink/50 block mb-1">Хэрэглэх лимит (заавал биш)</label>
+                    <input type="number" min="1" value={discountForm.usageLimit} onChange={e => df('usageLimit', e.target.value)}
+                      className="w-full border border-cream-dark rounded-sm px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-lime" placeholder="100" />
+                  </div>
+                  <div>
+                    <label className="label-mono text-ink/50 block mb-1">Дуусах огноо (заавал биш)</label>
+                    <input type="date" value={discountForm.expiresAt} onChange={e => df('expiresAt', e.target.value)}
+                      className="w-full border border-cream-dark rounded-sm px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-lime" />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <label className="flex items-center gap-2 cursor-pointer text-sm">
+                      <input type="checkbox" checked={discountForm.isActive} onChange={e => df('isActive', e.target.checked)} className="accent-lime" />
+                      Идэвхтэй
+                    </label>
+                  </div>
+                </div>
+                <div className="flex gap-3 mt-4">
+                  <button onClick={() => {
+                    if (!discountForm.code.trim() || !discountForm.value) { toast('Код, утгыг бөглөнө үү', 'error'); return }
+                    const code: DiscountCode = {
+                      id: editingDiscountId ?? `dc_${Date.now()}`,
+                      code: discountForm.code.trim(),
+                      type: discountForm.type,
+                      value: Number(discountForm.value),
+                      scope: discountForm.scope,
+                      categoryTarget: discountForm.scope === 'category' ? discountForm.categoryTarget : undefined,
+                      productIds: discountForm.scope === 'products' ? discountForm.productIds.split(',').map(s => s.trim()).filter(Boolean) : undefined,
+                      usageLimit: discountForm.usageLimit ? Number(discountForm.usageLimit) : undefined,
+                      usedCount: editingDiscountId ? (state.discountCodes.find(c => c.id === editingDiscountId)?.usedCount ?? 0) : 0,
+                      expiresAt: discountForm.expiresAt || undefined,
+                      isActive: discountForm.isActive,
+                    }
+                    if (editingDiscountId) { updateDiscountCode(code); toast('Код шинэчлэгдлээ', 'success') }
+                    else { addDiscountCode(code); toast('Код нэмэгдлээ', 'success') }
+                    setShowDiscountForm(false)
+                    setEditingDiscountId(null)
+                  }} className="btn-forest text-sm px-5 py-2">Хадгалах</button>
+                  <button onClick={() => setShowDiscountForm(false)} className="btn-outline text-sm px-5 py-2">Болих</button>
+                </div>
+              </div>
+            )}
+
+            {/* Discount codes table */}
+            {state.discountCodes.length === 0 ? (
+              <div className="bg-white rounded-sm border border-cream-dark p-8 text-center">
+                <p className="text-ink/40 text-sm">Хөнгөлөлтийн код байхгүй байна</p>
+              </div>
+            ) : (
+              <div className="bg-white rounded-sm border border-cream-dark overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead className="bg-cream border-b border-cream-dark">
+                    <tr>
+                      {['Код', 'Төрөл', 'Утга', 'Хамрах хүрээ', 'Хэрэглэсэн / Лимит', 'Дуусах', 'Төлөв', ''].map(h => (
+                        <th key={h} className="label-mono text-left px-4 py-3">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-cream">
+                    {state.discountCodes.map(c => (
+                      <tr key={c.id} className="hover:bg-cream/50 transition-colors">
+                        <td className="px-4 py-3 font-mono font-bold text-forest">{c.code}</td>
+                        <td className="px-4 py-3 text-ink/60">{c.type === 'percent' ? '%' : '₮'}</td>
+                        <td className="px-4 py-3 font-semibold">{c.value}{c.type === 'percent' ? '%' : '₮'}</td>
+                        <td className="px-4 py-3 text-ink/60 text-xs">
+                          {c.scope === 'all' ? 'Бүгд' : c.scope === 'category' ? `Ангилал: ${c.categoryTarget}` : `${c.productIds?.length} бүтээгдэхүүн`}
+                        </td>
+                        <td className="px-4 py-3 text-ink/60">{c.usedCount} / {c.usageLimit ?? '∞'}</td>
+                        <td className="px-4 py-3 text-xs text-ink/40">{c.expiresAt ? c.expiresAt.slice(0, 10) : '—'}</td>
+                        <td className="px-4 py-3">
+                          <span className={`label-mono text-xs px-2 py-0.5 rounded-sm ${c.isActive ? 'bg-lime/10 text-lime-dark' : 'bg-gray-100 text-gray-400'}`}>
+                            {c.isActive ? 'Идэвхтэй' : 'Идэвхгүй'}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex gap-2">
+                            <button onClick={() => {
+                              setDiscountForm({
+                                code: c.code, type: c.type, value: String(c.value),
+                                scope: c.scope, categoryTarget: c.categoryTarget ?? '',
+                                productIds: c.productIds?.join(', ') ?? '',
+                                usageLimit: c.usageLimit ? String(c.usageLimit) : '',
+                                expiresAt: c.expiresAt ?? '', isActive: c.isActive,
+                              })
+                              setEditingDiscountId(c.id)
+                              setShowDiscountForm(true)
+                            }} className="text-ink/30 hover:text-forest transition-colors">
+                              <Edit2 className="w-4 h-4" />
+                            </button>
+                            <button onClick={() => { if (confirm('Устгах уу?')) deleteDiscountCode(c.id) }} className="text-ink/30 hover:text-red-500 transition-colors">
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* SETTINGS */}
+        {tab === 'settings' && (
+          <div className="space-y-6 max-w-2xl">
+            {/* Bank settings */}
+            <div className="bg-white rounded-sm border border-cream-dark p-5">
+              <h2 className="font-serif font-semibold text-ink mb-4 flex items-center gap-2">
+                <Building2 className="w-5 h-5 text-lime-dark" /> Банкны тохиргоо
+              </h2>
+              <div className="space-y-3">
+                <div>
+                  <label className="label-mono text-ink/50 block mb-1">Банкны нэр</label>
+                  <input value={bankEdit.bankName} onChange={e => setBankEdit(b => ({ ...b, bankName: e.target.value }))}
+                    className="w-full border border-cream-dark rounded-sm px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-lime" placeholder="Хаан банк" />
+                </div>
+                <div>
+                  <label className="label-mono text-ink/50 block mb-1">Дансны дугаар</label>
+                  <input value={bankEdit.accountNumber} onChange={e => setBankEdit(b => ({ ...b, accountNumber: e.target.value }))}
+                    className="w-full border border-cream-dark rounded-sm px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-lime" placeholder="5000123456" />
+                </div>
+                <div>
+                  <label className="label-mono text-ink/50 block mb-1">Хүлээн авагчийн нэр</label>
+                  <input value={bankEdit.accountHolder} onChange={e => setBankEdit(b => ({ ...b, accountHolder: e.target.value }))}
+                    className="w-full border border-cream-dark rounded-sm px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-lime" placeholder="Groot MN LLC" />
+                </div>
+                <button onClick={() => { updateBankSettings(bankEdit); toast('Банкны мэдээлэл хадгалагдлаа', 'success') }}
+                  className="btn-forest text-sm px-6 py-2">Хадгалах</button>
+              </div>
+            </div>
+
+            {/* Delivery zones */}
+            <div className="bg-white rounded-sm border border-cream-dark p-5">
+              <h2 className="font-serif font-semibold text-ink mb-4 flex items-center gap-2">
+                <MapPin className="w-5 h-5 text-lime-dark" /> Хүргэлтийн бүс тохиргоо
+              </h2>
+              <div className="space-y-2 mb-4">
+                {zoneEdits.map((zone, i) => (
+                  <div key={zone.district} className="flex items-center gap-3">
+                    <span className="flex-1 text-sm text-ink">{zone.district}</span>
+                    <div className="flex items-center gap-1">
+                      <input
+                        type="number" min="0"
+                        value={zone.fee}
+                        onChange={e => setZoneEdits(z => z.map((zn, j) => j === i ? { ...zn, fee: Number(e.target.value) } : zn))}
+                        className="w-24 border border-cream-dark rounded-sm px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-lime text-right"
+                      />
+                      <span className="text-sm text-ink/50">₮</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <p className="text-xs text-ink/30 mb-3">50,000₮-с дээш захиалгад автоматаар үнэгүй хүргэлт хэрэгжинэ</p>
+              <button onClick={() => { updateDeliveryZones(zoneEdits); toast('Хүргэлтийн бүс хадгалагдлаа', 'success') }}
+                className="btn-forest text-sm px-6 py-2">Хадгалах</button>
             </div>
           </div>
         )}

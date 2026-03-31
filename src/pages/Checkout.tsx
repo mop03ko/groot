@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ChevronRight, CheckCircle, MapPin, CreditCard, Truck, ArrowLeft } from 'lucide-react'
+import { ChevronRight, CheckCircle, MapPin, CreditCard, Truck, ArrowLeft, Tag, Building2 } from 'lucide-react'
 import { useApp } from '../context/AppContext'
 import QPayModal from '../components/QPayModal'
 import type { Address } from '../types'
@@ -8,13 +8,13 @@ import type { Address } from '../types'
 const STEPS = ['Хаяг', 'Төлбөр', 'Баталгаажуулалт']
 
 export default function Checkout() {
-  const { state, cartTotal, deliveryFee, placeOrder, toast } = useApp()
+  const { state, cartTotal, placeOrder, toast, getDeliveryFeeForDistrict } = useApp()
   const navigate = useNavigate()
   const [step, setStep] = useState(0)
   const [selectedAddress, setSelectedAddress] = useState<Address | null>(
     state.user?.addresses.find(a => a.isDefault) ?? null
   )
-  const [payment, setPayment] = useState<'cash' | 'qpay' | 'card'>('qpay')
+  const [payment, setPayment] = useState<'cash' | 'qpay' | 'bank'>('qpay')
   const [notes, setNotes] = useState('')
   const [districtFilter, setDistrictFilter] = useState<string>('')
   const [placed, setPlaced] = useState(false)
@@ -34,17 +34,27 @@ export default function Checkout() {
     )
   }
 
+  // Zone-aware delivery fee (once address is selected)
+  const zoneDeliveryFee = selectedAddress
+    ? getDeliveryFeeForDistrict(selectedAddress.district)
+    : (cartTotal >= 50000 ? 0 : 3000)
+
+  const { code: discountCode, amount: discountAmount } = state.cartDiscount
+  const finalTotal = Math.max(0, cartTotal - discountAmount + zoneDeliveryFee)
+
   const handlePlaceOrder = () => {
     if (!selectedAddress) { toast('Хаяг сонгоно уу', 'error'); return }
+    const appliedDiscount = discountCode
+      ? { code: discountCode.code, amount: discountAmount }
+      : undefined
     if (payment === 'qpay') {
-      // Place order first, then open QPay modal
-      const order = placeOrder(selectedAddress, payment)
+      const order = placeOrder(selectedAddress, payment, appliedDiscount)
       setPendingOrder(order)
       setOrderNum(order.orderNumber)
       setShowQPay(true)
       return
     }
-    const order = placeOrder(selectedAddress, payment)
+    const order = placeOrder(selectedAddress, payment, appliedDiscount)
     setOrderNum(order.orderNumber)
     setPlaced(true)
     toast('Захиалга амжилттай өгөгдлөө!', 'success')
@@ -55,6 +65,8 @@ export default function Checkout() {
     setPlaced(true)
     toast('QPay төлбөр амжилттай!', 'success')
   }
+
+  const paymentLabel = payment === 'qpay' ? 'QPay' : payment === 'bank' ? 'Банкны шилжүүлэг' : 'Бэлэн мөнгө'
 
   if (placed) {
     return (
@@ -69,11 +81,11 @@ export default function Checkout() {
           <div className="bg-cream rounded-sm p-4 mb-6 text-sm text-ink/70 text-left space-y-1.5">
             <div className="flex items-center gap-2"><Truck className="w-4 h-4 text-lime-dark" /> 2 цагийн дотор хүргэнэ</div>
             <div className="flex items-center gap-2"><MapPin className="w-4 h-4 text-lime-dark" /> {selectedAddress?.district}, {selectedAddress?.building}</div>
-            <div className="flex items-center gap-2"><CreditCard className="w-4 h-4 text-lime-dark" /> {payment === 'qpay' ? 'QPay' : payment === 'card' ? 'Карт' : 'Бэлэн мөнгө'}</div>
+            <div className="flex items-center gap-2"><CreditCard className="w-4 h-4 text-lime-dark" /> {paymentLabel}</div>
           </div>
           <div className="flex gap-3">
             <button onClick={() => navigate('/dashboard')} className="btn-forest flex-1 py-2.5">Захиалга харах</button>
-            <button onClick={() => navigate('/')} className="btn-outline flex-1 py-2.5">Нүүр хуудас</button>
+            <button onClick={() => navigate('/shop')} className="btn-outline flex-1 py-2.5">Дэлгүүр</button>
           </div>
         </div>
       </div>
@@ -127,7 +139,7 @@ export default function Checkout() {
                   const districts = Array.from(new Set(addrs.map(a => a.district))).sort()
                   const filtered = districtFilter ? addrs.filter(a => a.district === districtFilter) : addrs
                   return addrs.length === 0 ? (
-                    <p className="text-sm text-ink/50 py-4">Хадгалагдсан хаяг байхгүй байна. Хэрэглэгчийн хэсгээс хаяг нэмнэ үү.</p>
+                    <p className="text-sm text-ink/50 py-4">Хадгалагдсан хаяг байхгүй байна. Профайл хэсгээс хаяг нэмнэ үү.</p>
                   ) : (
                     <>
                       {districts.length > 1 && (
@@ -159,6 +171,9 @@ export default function Checkout() {
                               <p className="font-semibold text-sm text-ink">{addr.label} {addr.isDefault && <span className="label-mono text-lime-dark ml-1">Үндсэн</span>}</p>
                               <p className="text-xs text-ink/60">{addr.district}, {addr.khoroo}</p>
                               <p className="text-xs text-ink/60">{addr.street}, {addr.building}</p>
+                              <p className="text-xs text-lime-dark mt-0.5 font-semibold">
+                                Хүргэлт: {cartTotal >= 50000 ? 'Үнэгүй' : `${getDeliveryFeeForDistrict(addr.district).toLocaleString('mn-MN')}₮`}
+                              </p>
                             </div>
                           </label>
                         ))}
@@ -189,7 +204,7 @@ export default function Checkout() {
                 <div className="space-y-3">
                   {([
                     { value: 'qpay', label: 'QPay', desc: 'QR кодоор төлнө', emoji: '📱' },
-                    { value: 'card', label: 'Банкны карт', desc: 'Visa, MasterCard', emoji: '💳' },
+                    { value: 'bank', label: 'Банкны шилжүүлэг', desc: 'Дансанд шилжүүлэх', emoji: '🏦' },
                     { value: 'cash', label: 'Бэлэн мөнгө', desc: 'Хүргэлтийн үед төлнө', emoji: '💵' },
                   ] as const).map(opt => (
                     <label key={opt.value} className={`flex items-center gap-3 p-4 rounded-sm border cursor-pointer transition-colors ${payment === opt.value ? 'border-forest bg-forest/5' : 'border-cream-dark hover:border-forest/40'}`}>
@@ -202,6 +217,30 @@ export default function Checkout() {
                     </label>
                   ))}
                 </div>
+
+                {/* Bank details shown when bank is selected */}
+                {payment === 'bank' && (
+                  <div className="mt-4 bg-cream rounded-sm border border-cream-dark p-4">
+                    <p className="label-mono text-ink/50 mb-2 flex items-center gap-1.5">
+                      <Building2 className="w-3.5 h-3.5" /> Шилжүүлэх данс
+                    </p>
+                    <div className="space-y-1.5 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-ink/60">Банк</span>
+                        <span className="font-semibold text-ink">{state.bankSettings.bankName}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-ink/60">Дансны дугаар</span>
+                        <span className="font-mono font-bold text-forest tracking-wider">{state.bankSettings.accountNumber}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-ink/60">Хүлээн авагч</span>
+                        <span className="font-semibold text-ink">{state.bankSettings.accountHolder}</span>
+                      </div>
+                    </div>
+                    <p className="text-xs text-ink/40 mt-3">Гүйлгээний утга: захиалгын дугаарыг бичнэ үү</p>
+                  </div>
+                )}
               </div>
             )}
 
@@ -233,8 +272,14 @@ export default function Checkout() {
                   )}
                   <div className="flex gap-2 text-ink/60">
                     <CreditCard className="w-4 h-4 shrink-0 text-lime-dark mt-0.5" />
-                    <span>{payment === 'qpay' ? 'QPay' : payment === 'card' ? 'Банкны карт' : 'Бэлэн мөнгө'}</span>
+                    <span>{paymentLabel}</span>
                   </div>
+                  {discountCode && (
+                    <div className="flex gap-2 text-lime-dark">
+                      <Tag className="w-4 h-4 shrink-0 mt-0.5" />
+                      <span>{discountCode.code} — -{discountAmount.toLocaleString('mn-MN')}₮ хөнгөлөлт</span>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -279,21 +324,27 @@ export default function Checkout() {
                   <span>Барааны үнэ</span>
                   <span>{cartTotal.toLocaleString()}₮</span>
                 </div>
+                {discountCode && (
+                  <div className="flex justify-between text-lime-dark font-semibold">
+                    <span className="flex items-center gap-1"><Tag className="w-3.5 h-3.5" /> {discountCode.code}</span>
+                    <span>-{discountAmount.toLocaleString()}₮</span>
+                  </div>
+                )}
                 <div className="flex justify-between text-ink/60">
                   <span className="flex items-center gap-1"><Truck className="w-3.5 h-3.5" /> Хүргэлт</span>
-                  {deliveryFee === 0
+                  {zoneDeliveryFee === 0
                     ? <span className="text-lime-dark font-semibold">Үнэгүй</span>
-                    : <span>{deliveryFee.toLocaleString()}₮</span>
+                    : <span>{zoneDeliveryFee.toLocaleString()}₮</span>
                   }
                 </div>
                 <div className="flex justify-between font-serif font-bold text-forest text-base pt-2 border-t border-cream-dark">
                   <span>Нийт</span>
-                  <span>{(cartTotal + deliveryFee).toLocaleString()}₮</span>
+                  <span>{finalTotal.toLocaleString()}₮</span>
                 </div>
               </div>
               {state.user && (
                 <p className="text-xs text-lime-dark mt-3 label-mono">
-                  +{Math.floor((cartTotal + deliveryFee) / 100)} урамшуулалын оноо авна
+                  +{Math.floor(finalTotal / 100)} урамшуулалын оноо авна
                 </p>
               )}
             </div>

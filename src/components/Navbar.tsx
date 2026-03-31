@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { ShoppingCart, LayoutDashboard, Settings, Truck, Menu, X, LogOut } from 'lucide-react'
+import { ShoppingCart, LayoutDashboard, Settings, Truck, Menu, X, LogOut, Bell } from 'lucide-react'
 import { useApp } from '../context/AppContext'
 import type { UserRole } from '../types'
 
@@ -11,10 +11,23 @@ const ROLE_LABELS: Record<UserRole, { label: string; icon: string }> = {
 }
 
 export default function Navbar() {
-  const { state, cartCount, toggleCart, switchRole, logout } = useApp()
+  const { state, cartCount, toggleCart, switchRole, logout, markNotificationRead, markAllNotificationsRead, unreadNotificationCount } = useApp()
   const [menuOpen, setMenuOpen] = useState(false)
   const [roleOpen, setRoleOpen] = useState(false)
+  const [notifOpen, setNotifOpen] = useState(false)
+  const notifRef = useRef<HTMLDivElement>(null)
   const navigate = useNavigate()
+
+  // Close notification dropdown on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
+        setNotifOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
 
   const handleRoleSwitch = (role: UserRole) => {
     switchRole(role)
@@ -22,7 +35,18 @@ export default function Navbar() {
     setMenuOpen(false)
     if (role === 'admin') navigate('/admin')
     else if (role === 'driver') navigate('/delivery')
-    else navigate('/')
+    else navigate('/shop')
+  }
+
+  // Filter notifications by role
+  const roleNotifications = state.notifications.filter(n =>
+    state.user?.role === 'admin' ? n.type === 'new_order' : n.type === 'driver_assigned'
+  )
+  const roleUnread = roleNotifications.filter(n => !n.read).length
+
+  const formatNotifTime = (iso: string) => {
+    const d = new Date(iso)
+    return d.toLocaleTimeString('mn-MN', { hour: '2-digit', minute: '2-digit' })
   }
 
   return (
@@ -31,7 +55,7 @@ export default function Navbar() {
         <div className="flex items-center justify-between h-16">
 
           {/* Logo */}
-          <Link to="/" className="flex items-center gap-2.5 font-serif font-bold text-xl tracking-tight">
+          <Link to="/shop" className="flex items-center gap-2.5 font-serif font-bold text-xl tracking-tight">
             <span className="relative">
               <span className="text-white">GROOT</span>
               <span className="absolute -top-0.5 -right-2 w-1.5 h-1.5 bg-lime rounded-full pulse-dot" />
@@ -40,8 +64,7 @@ export default function Navbar() {
 
           {/* Desktop nav */}
           <div className="hidden md:flex items-center gap-6 text-sm font-medium">
-            <Link to="/" className="text-white/70 hover:text-white transition-colors">Нүүр</Link>
-            <Link to="/shop" className="text-white/70 hover:text-white transition-colors">Дэлгүүр</Link>
+            <Link to="/shop" className="text-white/70 hover:text-white transition-colors">Нүүр</Link>
 
             {/* Demo role switcher */}
             <div className="relative">
@@ -71,12 +94,63 @@ export default function Navbar() {
           </div>
 
           {/* Right side */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            {/* Notification bell for admin and driver */}
+            {(state.user?.role === 'admin' || state.user?.role === 'driver') && (
+              <div className="relative" ref={notifRef}>
+                <button
+                  onClick={() => setNotifOpen(!notifOpen)}
+                  className="relative w-10 h-10 rounded-sm hover:bg-white/10 flex items-center justify-center transition-colors"
+                >
+                  <Bell className="w-5 h-5 text-white" />
+                  {roleUnread > 0 && (
+                    <span className="absolute -top-0.5 -right-0.5 w-5 h-5 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
+                      {roleUnread > 9 ? '9+' : roleUnread}
+                    </span>
+                  )}
+                </button>
+                {notifOpen && (
+                  <div className="absolute top-full right-0 mt-1 w-80 bg-forest-light border border-white/10 rounded-sm shadow-xl z-50 max-h-80 overflow-y-auto">
+                    <div className="flex items-center justify-between px-4 py-2.5 border-b border-white/10">
+                      <span className="text-sm font-semibold text-white">Мэдэгдэл</span>
+                      {roleUnread > 0 && (
+                        <button
+                          onClick={() => { markAllNotificationsRead(); setNotifOpen(false) }}
+                          className="text-xs text-lime hover:text-lime-light transition-colors"
+                        >
+                          Бүгдийг уншсан
+                        </button>
+                      )}
+                    </div>
+                    {roleNotifications.length === 0 ? (
+                      <div className="px-4 py-6 text-center text-sm text-white/40">Мэдэгдэл байхгүй</div>
+                    ) : (
+                      roleNotifications.slice(0, 10).map(n => (
+                        <div
+                          key={n.id}
+                          onClick={() => markNotificationRead(n.id)}
+                          className={`px-4 py-3 border-b border-white/5 cursor-pointer hover:bg-white/5 transition-colors ${n.read ? 'opacity-50' : ''}`}
+                        >
+                          <div className="flex items-start gap-2">
+                            {!n.read && <span className="w-2 h-2 bg-lime rounded-full mt-1.5 shrink-0" />}
+                            <div className={!n.read ? '' : 'pl-4'}>
+                              <p className="text-xs text-white leading-snug">{n.message}</p>
+                              <p className="text-xs text-white/40 mt-0.5">{formatNotifTime(n.createdAt)}</p>
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
             {state.user?.role === 'customer' && (
               <>
                 <Link to="/dashboard" className="hidden md:flex items-center gap-1.5 text-sm text-white/70 hover:text-white transition-colors">
                   <LayoutDashboard className="w-4 h-4" />
-                  <span>Миний хэсэг</span>
+                  <span>Профайл</span>
                 </Link>
                 <button
                   onClick={toggleCart}
@@ -124,12 +198,11 @@ export default function Navbar() {
       {/* Mobile menu */}
       {menuOpen && (
         <div className="md:hidden border-t border-white/10 bg-forest-light px-4 py-4 space-y-3">
-          <Link to="/" className="block text-sm text-white/80 py-2 font-medium" onClick={() => setMenuOpen(false)}>Нүүр</Link>
-          <Link to="/shop" className="block text-sm text-white/80 py-2 font-medium" onClick={() => setMenuOpen(false)}>Дэлгүүр</Link>
+          <Link to="/shop" className="block text-sm text-white/80 py-2 font-medium" onClick={() => setMenuOpen(false)}>Нүүр</Link>
           {state.user?.role === 'customer' && (
             <>
               <Link to="/dashboard" className="flex items-center gap-2 text-sm text-white/80 py-2 font-medium" onClick={() => setMenuOpen(false)}>
-                <LayoutDashboard className="w-4 h-4" /> Миний хэсэг
+                <LayoutDashboard className="w-4 h-4" /> Профайл
               </Link>
               <button onClick={() => { toggleCart(); setMenuOpen(false) }} className="w-full flex items-center justify-between text-sm font-medium bg-white/10 text-white rounded-sm px-4 py-2.5">
                 <span className="flex items-center gap-2"><ShoppingCart className="w-4 h-4" /> Сагс</span>

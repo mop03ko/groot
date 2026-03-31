@@ -112,8 +112,9 @@ export default function Login() {
           </div>
         </div>
 
-        <p className="text-center text-sm text-ink/40 mt-4">
-          <Link to="/" className="hover:text-forest transition-colors">← Нүүр хуудас руу буцах</Link>
+        <p className="text-center text-sm text-ink/50 mt-4">
+          Данс байхгүй юу?{' '}
+          <Link to="/register" className="text-forest hover:underline font-semibold">Бүртгүүлэх →</Link>
         </p>
       </div>
     </div>

@@ -1,11 +1,18 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { X, ShoppingCart, Plus, Minus, Trash2, Truck, ArrowRight } from 'lucide-react'
+import { X, ShoppingCart, Plus, Minus, Trash2, Truck, ArrowRight, Tag } from 'lucide-react'
 import { useApp } from '../context/AppContext'
+import { applyDiscountCode } from '../utils/discount'
 
 export default function CartDrawer() {
-  const { state, toggleCart, removeFromCart, updateCartQty, cartTotal, deliveryFee } = useApp()
+  const { state, toggleCart, removeFromCart, updateCartQty, cartTotal, deliveryFee, setCartDiscount } = useApp()
   const navigate = useNavigate()
+
+  const [discountInput, setDiscountInput] = useState('')
+  const [codeError, setCodeError] = useState('')
+
+  const appliedCode = state.cartDiscount.code
+  const discountAmount = state.cartDiscount.amount
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') toggleCart() }
@@ -23,6 +30,30 @@ export default function CartDrawer() {
   const threshold = 50000
   const remaining = threshold - cartTotal
   const progress = Math.min((cartTotal / threshold) * 100, 100)
+
+  const finalTotal = Math.max(0, cartTotal - discountAmount + deliveryFee)
+
+  const handleApplyCode = () => {
+    if (!discountInput.trim()) return
+    const code = state.discountCodes.find(
+      c => c.code.toLowerCase() === discountInput.trim().toLowerCase()
+    )
+    if (!code) { setCodeError('Код олдсонгүй'); return }
+    if (!code.isActive) { setCodeError('Энэ код идэвхгүй байна'); return }
+    if (code.expiresAt && new Date(code.expiresAt) < new Date()) { setCodeError('Кодны хугацаа дууссан'); return }
+    if (code.usageLimit !== undefined && code.usedCount >= code.usageLimit) { setCodeError('Кодны хэрэглэх лимит дууссан'); return }
+    const amount = applyDiscountCode(code, state.cart, cartTotal)
+    if (amount === 0) { setCodeError('Энэ код таны сагсанд хэрэгжихгүй байна'); return }
+    setCartDiscount(code, amount)
+    setDiscountInput('')
+    setCodeError('')
+  }
+
+  const handleRemoveCode = () => {
+    setCartDiscount(null, 0)
+    setDiscountInput('')
+    setCodeError('')
+  }
 
   return (
     <>
@@ -118,21 +149,57 @@ export default function CartDrawer() {
         {/* Footer */}
         {state.cart.length > 0 && (
           <div className="border-t border-cream-dark px-5 py-4 bg-white">
+            {/* Discount code input */}
+            <div className="mb-3">
+              {appliedCode ? (
+                <div className="flex items-center justify-between bg-lime/10 border border-lime/30 rounded-sm px-3 py-2">
+                  <span className="flex items-center gap-1.5 text-xs text-lime-dark font-semibold">
+                    <Tag className="w-3.5 h-3.5" />
+                    {appliedCode.code} — -{discountAmount.toLocaleString('mn-MN')}₮
+                  </span>
+                  <button onClick={handleRemoveCode} className="text-ink/30 hover:text-red-500 transition-colors">
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ) : (
+                <div className="flex gap-2">
+                  <input
+                    value={discountInput}
+                    onChange={e => { setDiscountInput(e.target.value.toUpperCase()); setCodeError('') }}
+                    onKeyDown={e => { if (e.key === 'Enter') handleApplyCode() }}
+                    placeholder="Хөнгөлөлтийн код"
+                    className="flex-1 border border-cream-dark rounded-sm px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-lime font-mono uppercase bg-cream"
+                  />
+                  <button onClick={handleApplyCode} className="btn-forest text-xs px-3 py-2 whitespace-nowrap">
+                    Хэрэглэх
+                  </button>
+                </div>
+              )}
+              {codeError && <p className="text-xs text-red-500 mt-1">{codeError}</p>}
+            </div>
+
+            {/* Totals */}
             <div className="space-y-1.5 mb-4 text-sm">
               <div className="flex justify-between text-ink/60">
                 <span>Барааны үнэ</span>
                 <span>{cartTotal.toLocaleString('mn-MN')}₮</span>
               </div>
+              {appliedCode && (
+                <div className="flex justify-between text-lime-dark font-semibold">
+                  <span className="flex items-center gap-1"><Tag className="w-3.5 h-3.5" /> Хөнгөлөлт</span>
+                  <span>-{discountAmount.toLocaleString('mn-MN')}₮</span>
+                </div>
+              )}
               <div className="flex justify-between text-ink/60">
                 <span className="flex items-center gap-1"><Truck className="w-3.5 h-3.5" /> Хүргэлт</span>
                 {deliveryFee === 0
                   ? <span className="text-lime-dark font-semibold">Үнэгүй</span>
-                  : <span>{deliveryFee.toLocaleString('mn-MN')}₮</span>
+                  : <span>{deliveryFee.toLocaleString('mn-MN')}₮ <span className="text-ink/30 text-xs">(хаяг сонгоход өөрчлөгдөнө)</span></span>
                 }
               </div>
               <div className="flex justify-between font-serif font-bold text-ink text-base pt-2 border-t border-cream-dark">
                 <span>Нийт дүн</span>
-                <span className="text-forest">{(cartTotal + deliveryFee).toLocaleString('mn-MN')}₮</span>
+                <span className="text-forest">{finalTotal.toLocaleString('mn-MN')}₮</span>
               </div>
             </div>
             <button

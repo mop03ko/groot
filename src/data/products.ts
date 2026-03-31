@@ -5,9 +5,8 @@ export const products: Product[] = [
     id: 'p1', name: 'Лууван', nameEn: 'Carrot',
     category: 'vegetable', price: 1500, unit: 'кг', stock: 42,
     emoji: '🥕', bgGradient: 'from-orange-50 to-orange-100',
-    description: 'Шинэхэн лууван. Витамин А-р баялаг, Барс зах дээрээс шалгасан.',
+    description: 'Шинэхэн лууван. Витамин А-р баялаг.',
     origin: 'Дархан', rating: 4.8, reviews: 124, isFeatured: true,
-    checkedTime: '07:30', market: 'Барс зах',
   },
   {
     id: 'p2', name: 'Байцаа', nameEn: 'Cabbage',
@@ -15,7 +14,6 @@ export const products: Product[] = [
     emoji: '🥬', bgGradient: 'from-green-50 to-green-100',
     description: 'Хадгалагдаж буй шинэ байцаа. Хямд, шимтэй.',
     origin: 'Налайх', rating: 4.5, reviews: 89,
-    checkedTime: '07:30', market: 'Барс зах',
   },
   {
     id: 'p3', name: 'Сонгино', nameEn: 'Onion',
@@ -23,7 +21,6 @@ export const products: Product[] = [
     emoji: '🧅', bgGradient: 'from-yellow-50 to-amber-100',
     description: 'Цагаан болон улаан сонгино. Өвлийн хадгалалт.',
     origin: 'Дархан', rating: 4.6, reviews: 201,
-    checkedTime: '07:30', market: 'Барс зах',
   },
   {
     id: 'p4', name: 'Часнай', nameEn: 'Garlic',
@@ -31,7 +28,6 @@ export const products: Product[] = [
     emoji: '🧄', bgGradient: 'from-slate-50 to-slate-100',
     description: 'Дотоодын часнай. Эмчилгээний чанар өндөр.',
     origin: 'Налайх', rating: 4.9, reviews: 156, isFeatured: true,
-    checkedTime: '07:30', market: 'Барс зах',
   },
   {
     id: 'p5', name: 'Улаан лооль', nameEn: 'Tomato',
@@ -39,7 +35,6 @@ export const products: Product[] = [
     emoji: '🍅', bgGradient: 'from-red-50 to-red-100',
     description: 'Хүлэмжийн боловсорсон улаан лооль. Чихэрлэг амттай.',
     origin: 'Улаанбаатар', rating: 4.7, reviews: 178, discount: 10, isFeatured: true,
-    checkedTime: '07:30', market: 'Барс зах',
   },
   {
     id: 'p6', name: 'Өргөст хэмх', nameEn: 'Cucumber',
@@ -47,7 +42,6 @@ export const products: Product[] = [
     emoji: '🥒', bgGradient: 'from-green-50 to-emerald-100',
     description: 'Шинэхэн, хатуу өргөст хэмх. Хүлэмжийн тариалалт.',
     origin: 'Улаанбаатар', rating: 4.4, reviews: 93,
-    checkedTime: '07:30', market: 'Барс зах',
   },
   {
     id: 'p7', name: 'Брокколи', nameEn: 'Broccoli',
@@ -55,7 +49,6 @@ export const products: Product[] = [
     emoji: '🥦', bgGradient: 'from-green-50 to-green-100',
     description: 'Импортын брокколи. Хүйтэн сав нөхцөлд тариалсан.',
     origin: 'БНХАУ', rating: 4.6, reviews: 67, isFeatured: true,
-    checkedTime: '07:30', market: 'Барс зах',
   },
   {
     id: 'p8', name: 'Чинжүү', nameEn: 'Bell Pepper',
@@ -63,7 +56,6 @@ export const products: Product[] = [
     emoji: '🫑', bgGradient: 'from-green-50 to-yellow-50',
     description: 'Улаан, шар, ногоон чинжүү. Витамин С-р баялаг.',
     origin: 'Улаанбаатар', rating: 4.5, reviews: 112,
-    checkedTime: '07:30', market: 'Барс зах',
   },
   {
     id: 'p9', name: 'Хулуу', nameEn: 'Pumpkin',
@@ -71,7 +63,6 @@ export const products: Product[] = [
     emoji: '🎃', bgGradient: 'from-orange-50 to-amber-50',
     description: 'Намрын хулуу. Шөл, зоосон хоолонд тохиромжтой.',
     origin: 'Дархан', rating: 4.3, reviews: 48,
-    checkedTime: '07:30', market: 'Барс зах',
   },
   {
     id: 'p10', name: 'Манжин', nameEn: 'Beetroot',
@@ -79,7 +70,6 @@ export const products: Product[] = [
     emoji: '🫚', bgGradient: 'from-purple-50 to-pink-50',
     description: 'Улаан манжин. Бурша, шөлөнд дуртай.',
     origin: 'Дархан', rating: 4.4, reviews: 76, discount: 15,
-    checkedTime: '07:30', market: 'Барс зах',
   },
   {
     id: 'p11', name: 'Төмс', nameEn: 'Potato',
@@ -87,7 +77,6 @@ export const products: Product[] = [
     emoji: '🥔', bgGradient: 'from-amber-50 to-yellow-50',
     description: 'Дотоодын чанартай төмс. Нэрлэн хадгалсан.',
     origin: 'Налайх', rating: 4.7, reviews: 245, isFeatured: true,
-    checkedTime: '07:30', market: 'Барс зах',
   },
   {
     id: 'p12', name: 'Салат', nameEn: 'Lettuce',
@@ -95,7 +84,6 @@ export const products: Product[] = [
     emoji: '🥗', bgGradient: 'from-lime-50 to-green-50',
     description: 'Шинэхэн ногоон салат. Хүлэмжийн, өдөр бүр ирдэг.',
     origin: 'Улаанбаатар', rating: 4.5, reviews: 83,
-    checkedTime: '07:30', market: 'Барс зах',
   },
   {
     id: 'p13', name: 'Алим', nameEn: 'Apple',
@@ -103,7 +91,6 @@ export const products: Product[] = [
     emoji: '🍎', bgGradient: 'from-red-50 to-rose-50',
     description: 'Fuji, Gala, Golden алим. Импортын.',
     origin: 'БНХАУ', rating: 4.6, reviews: 189, isFeatured: true,
-    checkedTime: '07:30', market: 'Барс зах',
   },
   {
     id: 'p14', name: 'Жүрж', nameEn: 'Orange',
@@ -111,7 +98,6 @@ export const products: Product[] = [
     emoji: '🍊', bgGradient: 'from-orange-50 to-amber-50',
     description: 'Амттай жүрж. Витамин С-р маш баялаг.',
     origin: 'Египет', rating: 4.7, reviews: 134,
-    checkedTime: '07:30', market: 'Барс зах',
   },
   {
     id: 'p15', name: 'Гадил', nameEn: 'Banana',
@@ -119,7 +105,6 @@ export const products: Product[] = [
     emoji: '🍌', bgGradient: 'from-yellow-50 to-amber-50',
     description: 'Боловсорсон гадил жимс. Хүүхдэд тохиромжтой.',
     origin: 'Эквадор', rating: 4.5, reviews: 211, discount: 5,
-    checkedTime: '07:30', market: 'Барс зах',
   },
   {
     id: 'p16', name: 'Нимбэг', nameEn: 'Lemon',
@@ -127,7 +112,6 @@ export const products: Product[] = [
     emoji: '🍋', bgGradient: 'from-yellow-50 to-lime-50',
     description: 'Хүчил баялаг нимбэг. Цайнд, хоолонд хэрэглэнэ.',
     origin: 'Турк', rating: 4.4, reviews: 67,
-    checkedTime: '07:30', market: 'Барс зах',
   },
   {
     id: 'p17', name: 'Гуа (Кориандр)', nameEn: 'Coriander',
@@ -135,7 +119,6 @@ export const products: Product[] = [
     emoji: '🌿', bgGradient: 'from-green-50 to-emerald-50',
     description: 'Шинэхэн кориандр. Хоол чимэглэхэд хэрэглэнэ.',
     origin: 'Улаанбаатар', rating: 4.3, reviews: 45,
-    checkedTime: '07:30', market: 'Барс зах',
   },
   {
     id: 'p18', name: 'Цэнхэр сонгино', nameEn: 'Green Onion',
@@ -143,7 +126,6 @@ export const products: Product[] = [
     emoji: '🌱', bgGradient: 'from-teal-50 to-green-50',
     description: 'Шинэхэн ногоон сонгино. Өдөр бүр нийлүүлдэг.',
     origin: 'Улаанбаатар', rating: 4.6, reviews: 98,
-    checkedTime: '07:30', market: 'Барс зах',
   },
   {
     id: 'p19', name: 'Органик лууван', nameEn: 'Organic Carrot',
@@ -151,7 +133,6 @@ export const products: Product[] = [
     emoji: '🥕', bgGradient: 'from-orange-50 to-green-50',
     description: 'Химийн бордоо хэрэглэлгүй тариалсан органик лууван.',
     origin: 'Налайх', rating: 4.9, reviews: 34, isOrganic: true, isFeatured: true,
-    checkedTime: '07:30', market: 'Барс зах',
   },
   {
     id: 'p20', name: 'Органик спинат', nameEn: 'Organic Spinach',
@@ -159,7 +140,6 @@ export const products: Product[] = [
     emoji: '🍃', bgGradient: 'from-green-50 to-emerald-100',
     description: 'Органик аргаар тариалсан шпинат. Төмөр, фолат баялаг.',
     origin: 'Налайх', rating: 4.8, reviews: 28, isOrganic: true,
-    checkedTime: '07:30', market: 'Барс зах',
   },
 ]
 
