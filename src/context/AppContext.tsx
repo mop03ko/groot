@@ -360,29 +360,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return { ...init, user }
   })
 
-  useEffect(() => {
-    localStorage.setItem('groot_cart_v1', JSON.stringify(state.cart))
-  }, [state.cart])
+  // Safe localStorage helper — catches QuotaExceededError silently
+  function lsSet(key: string, value: unknown) {
+    try { localStorage.setItem(key, JSON.stringify(value)) } catch { /* quota exceeded — ignore */ }
+  }
 
-  useEffect(() => {
-    localStorage.setItem('groot_products_v1', JSON.stringify(state.products))
-  }, [state.products])
-
-  useEffect(() => {
-    localStorage.setItem('groot_categories_v1', JSON.stringify(state.categories))
-  }, [state.categories])
-
-  useEffect(() => {
-    localStorage.setItem('groot_bank_v1', JSON.stringify(state.bankSettings))
-  }, [state.bankSettings])
-
-  useEffect(() => {
-    localStorage.setItem('groot_zones_v1', JSON.stringify(state.deliveryZones))
-  }, [state.deliveryZones])
-
-  useEffect(() => {
-    localStorage.setItem('groot_codes_v1', JSON.stringify(state.discountCodes))
-  }, [state.discountCodes])
+  useEffect(() => { lsSet('groot_cart_v1',       state.cart)          }, [state.cart])
+  useEffect(() => { lsSet('groot_products_v1',   state.products)      }, [state.products])
+  useEffect(() => { lsSet('groot_categories_v1', state.categories)    }, [state.categories])
+  useEffect(() => { lsSet('groot_bank_v1',       state.bankSettings)  }, [state.bankSettings])
+  useEffect(() => { lsSet('groot_zones_v1',      state.deliveryZones) }, [state.deliveryZones])
+  useEffect(() => { lsSet('groot_codes_v1',      state.discountCodes) }, [state.discountCodes])
 
   useEffect(() => {
     if (state.toasts.length === 0) return
@@ -392,7 +380,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [state.toasts])
 
   const cartTotal = state.cart.reduce((sum, i) => {
-    const ep = i.product.discount ? Math.round(i.product.price * (1 - i.product.discount / 100)) : i.product.price
+    const isWholesale = i.product.wholesalePrice && i.product.minWholesaleQty
+      && i.quantity >= i.product.minWholesaleQty
+    const ep = isWholesale
+      ? i.product.wholesalePrice!
+      : i.product.discount
+        ? Math.round(i.product.price * (1 - i.product.discount / 100))
+        : i.product.price
     return sum + ep * i.quantity
   }, 0)
   const cartCount = state.cart.reduce((sum, i) => sum + i.quantity, 0)

@@ -156,9 +156,35 @@ export default function AdminPanel() {
   function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
-    const reader = new FileReader()
-    reader.onload = ev => pf('image', (ev.target?.result as string) ?? '')
-    reader.readAsDataURL(file)
+    if (!file.type.startsWith('image/')) {
+      toast('Зөвхөн зураг файл оруулна уу', 'error'); return
+    }
+    if (file.size > 8 * 1024 * 1024) {
+      toast('Зураг 8MB-аас их байна', 'error'); return
+    }
+    const img = new Image()
+    const url = URL.createObjectURL(file)
+    img.onload = () => {
+      URL.revokeObjectURL(url)
+      const MAX = 800
+      let { width, height } = img
+      if (width > MAX || height > MAX) {
+        if (width > height) { height = Math.round(height * MAX / width); width = MAX }
+        else { width = Math.round(width * MAX / height); height = MAX }
+      }
+      const canvas = document.createElement('canvas')
+      canvas.width = width
+      canvas.height = height
+      const ctx = canvas.getContext('2d')
+      if (!ctx) { toast('Зураг боловсруулахад алдаа гарлаа', 'error'); return }
+      ctx.drawImage(img, 0, 0, width, height)
+      pf('image', canvas.toDataURL('image/jpeg', 0.75))
+    }
+    img.onerror = () => {
+      URL.revokeObjectURL(url)
+      toast('Зураг уншихад алдаа гарлаа', 'error')
+    }
+    img.src = url
   }
 
   function handleSaveProduct() {
@@ -197,6 +223,14 @@ export default function AdminPanel() {
       toast('Бүтээгдэхүүн нэмэгдлээ', 'success')
     }
     setShowAddProduct(false)
+    setEditingProductId(null)
+    setProductForm(EMPTY_FORM)
+  }
+
+  function closeProductModal() {
+    setShowAddProduct(false)
+    setEditingProductId(null)
+    setProductForm(EMPTY_FORM)
   }
 
   function pf(key: keyof ProductForm, val: string | boolean | ProductVariant[]) {
@@ -253,11 +287,11 @@ export default function AdminPanel() {
 
       {/* Add/Edit Product Modal */}
       {showAddProduct && (
-        <div className="fixed inset-0 z-50 bg-ink/40 flex items-center justify-center p-4" onClick={() => setShowAddProduct(false)}>
+        <div className="fixed inset-0 z-50 bg-ink/40 flex items-center justify-center p-4" onClick={closeProductModal}>
           <div className="bg-white rounded-sm border border-cream-dark w-full max-w-xl max-h-[92vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between px-5 py-4 border-b border-cream-dark sticky top-0 bg-white z-10">
               <h3 className="font-serif font-semibold text-ink">{editingProductId ? 'Бүтээгдэхүүн засах' : 'Шинэ бүтээгдэхүүн нэмэх'}</h3>
-              <button onClick={() => setShowAddProduct(false)} className="text-ink/30 hover:text-ink"><X className="w-5 h-5" /></button>
+              <button onClick={closeProductModal} className="text-ink/30 hover:text-ink"><X className="w-5 h-5" /></button>
             </div>
             <div className="p-5 space-y-4">
 
@@ -423,7 +457,7 @@ export default function AdminPanel() {
             </div>
 
             <div className="flex gap-3 px-5 py-4 border-t border-cream-dark sticky bottom-0 bg-white">
-              <button onClick={() => setShowAddProduct(false)} className="btn-outline flex-1 py-2">Болих</button>
+              <button onClick={closeProductModal} className="btn-outline flex-1 py-2">Болих</button>
               <button onClick={handleSaveProduct} className="btn-forest flex-1 py-2 flex items-center justify-center gap-1">
                 <Plus className="w-4 h-4" /> {editingProductId ? 'Хадгалах' : 'Нэмэх'}
               </button>
@@ -999,7 +1033,7 @@ export default function AdminPanel() {
                 </div>
                 <div className="flex gap-3 mt-4">
                   <button onClick={() => {
-                    if (!discountForm.code.trim() || !discountForm.value) { toast('Код, утгыг бөглөнө үү', 'error'); return }
+                    if (!discountForm.code.trim() || discountForm.value === '' || Number(discountForm.value) <= 0) { toast('Код болон хөнгөлөлтийн утгыг оруулна уу', 'error'); return }
                     const code: DiscountCode = {
                       id: editingDiscountId ?? `dc_${Date.now()}`,
                       code: discountForm.code.trim(),

@@ -106,9 +106,13 @@ export default function CartDrawer() {
           ) : (
             <div className="divide-y divide-cream-dark">
               {state.cart.map(item => {
-                const ep = item.product.discount
-                  ? Math.round(item.product.price * (1 - item.product.discount / 100))
-                  : item.product.price
+                const isWholesale = item.product.wholesalePrice && item.product.minWholesaleQty
+                  && item.quantity >= item.product.minWholesaleQty
+                const ep = isWholesale
+                  ? item.product.wholesalePrice!
+                  : item.product.discount
+                    ? Math.round(item.product.price * (1 - item.product.discount / 100))
+                    : item.product.price
                 return (
                   <div key={item.product.id} className="flex items-center gap-3 px-5 py-3.5 hover:bg-cream/50 transition-colors">
                     <div className={`w-12 h-12 rounded-sm bg-gradient-to-br ${item.product.bgGradient} flex items-center justify-center text-2xl shrink-0`}>
@@ -119,6 +123,7 @@ export default function CartDrawer() {
                       <p className="font-serif font-bold text-forest text-sm">
                         {ep.toLocaleString('mn-MN')}₮
                         <span className="label-mono font-normal text-ink/40 ml-1">/{item.product.unit}</span>
+                        {isWholesale && <span className="ml-1 text-xs text-lime-dark font-mono">бөөн</span>}
                       </p>
                     </div>
                     <div className="flex items-center gap-1.5 shrink-0">

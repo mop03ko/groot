@@ -33,7 +33,8 @@ export default function DeliveryApp() {
 
   const getNextStatus = (current: OrderStatus): OrderStatus | null => {
     const idx = DELIVERY_FLOW.findIndex(f => f.status === current)
-    if (idx === -1 || idx === DELIVERY_FLOW.length - 1) return 'delivered'
+    if (idx === -1) return null
+    if (idx === DELIVERY_FLOW.length - 1) return null   // 'delivered' — эцсийн статус
     return DELIVERY_FLOW[idx + 1].status
   }
 
