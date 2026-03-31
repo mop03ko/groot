@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ChevronRight, CheckCircle, MapPin, CreditCard, Truck, ArrowLeft } from 'lucide-react'
 import { useApp } from '../context/AppContext'
+import QPayModal from '../components/QPayModal'
 import type { Address } from '../types'
 
 const STEPS = ['Хаяг', 'Төлбөр', 'Баталгаажуулалт']
@@ -17,6 +18,8 @@ export default function Checkout() {
   const [notes, setNotes] = useState('')
   const [placed, setPlaced] = useState(false)
   const [orderNum, setOrderNum] = useState('')
+  const [pendingOrder, setPendingOrder] = useState<ReturnType<typeof placeOrder> | null>(null)
+  const [showQPay, setShowQPay] = useState(false)
 
   if (state.cart.length === 0 && !placed) {
     return (
@@ -32,10 +35,24 @@ export default function Checkout() {
 
   const handlePlaceOrder = () => {
     if (!selectedAddress) { toast('Хаяг сонгоно уу', 'error'); return }
+    if (payment === 'qpay') {
+      // Place order first, then open QPay modal
+      const order = placeOrder(selectedAddress, payment)
+      setPendingOrder(order)
+      setOrderNum(order.orderNumber)
+      setShowQPay(true)
+      return
+    }
     const order = placeOrder(selectedAddress, payment)
     setOrderNum(order.orderNumber)
     setPlaced(true)
     toast('Захиалга амжилттай өгөгдлөө!', 'success')
+  }
+
+  const handleQPaySuccess = () => {
+    setShowQPay(false)
+    setPlaced(true)
+    toast('QPay төлбөр амжилттай!', 'success')
   }
 
   if (placed) {
@@ -64,6 +81,15 @@ export default function Checkout() {
 
   return (
     <div className="min-h-screen bg-cream">
+      {showQPay && pendingOrder && (
+        <QPayModal
+          orderId={pendingOrder.orderNumber}
+          amount={pendingOrder.total}
+          description={`Groot.mn захиалга ${pendingOrder.orderNumber}`}
+          onSuccess={handleQPaySuccess}
+          onClose={() => setShowQPay(false)}
+        />
+      )}
       <div className="bg-forest text-white py-8">
         <div className="max-w-3xl mx-auto px-4 sm:px-6">
           <button onClick={() => navigate(-1)} className="flex items-center gap-1 text-white/60 hover:text-white text-sm mb-4 transition-colors">
