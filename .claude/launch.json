@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "Groot.mn Dev Server",
+      "runtimeExecutable": "deno",
+      "runtimeArgs": ["task", "dev"],
+      "port": 5173
+    },
+    {
+      "name": "Groot.mn Preview (build)",
+      "runtimeExecutable": "deno",
+      "runtimeArgs": ["task", "preview"],
+      "port": 4173
+    }
+  ]
+}

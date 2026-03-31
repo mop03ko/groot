@@ -1,0 +1,8 @@
+{
+  "tasks": {
+    "dev": "deno run -A npm:vite --port 5173",
+    "build": "deno run -A npm:vite build",
+    "preview": "deno run -A npm:vite preview --port 4173"
+  },
+  "nodeModulesDir": "auto"
+}
