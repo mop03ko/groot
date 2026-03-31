@@ -379,16 +379,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return () => clearTimeout(timer)
   }, [state.toasts])
 
-  const cartTotal = state.cart.reduce((sum, i) => {
+  const cartTotal = Math.round(state.cart.reduce((sum, i) => {
     const isWholesale = i.product.wholesalePrice && i.product.minWholesaleQty
       && i.quantity >= i.product.minWholesaleQty
     const ep = isWholesale
       ? i.product.wholesalePrice!
       : i.product.discount
-        ? Math.round(i.product.price * (1 - i.product.discount / 100))
+        ? i.product.price * (1 - i.product.discount / 100)  // round at the end only
         : i.product.price
     return sum + ep * i.quantity
-  }, 0)
+  }, 0))
   const cartCount = state.cart.reduce((sum, i) => sum + i.quantity, 0)
   const deliveryFee = cartTotal >= 50000 ? 0 : 3000
 
@@ -470,11 +470,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
       deliveryAddress: address,
       status: 'confirmed',
       timeline: [
-        { status: 'pending', label: 'Захиалга хүлээгдэж байна', time: new Date().toLocaleTimeString('mn-MN', { hour: '2-digit', minute: '2-digit' }), done: true },
-        { status: 'confirmed', label: 'Баталгаажсан', time: new Date().toLocaleTimeString('mn-MN', { hour: '2-digit', minute: '2-digit' }), done: true },
-        { status: 'preparing', label: 'Бэлтгэж байна', time: '', done: false },
-        { status: 'delivering', label: 'Хүргэлтэнд гарсан', time: '', done: false },
-        { status: 'delivered', label: 'Хүргэгдсэн', time: '', done: false },
+        { status: 'pending',   label: 'Захиалга хүлээгдэж байна', time: new Date().toLocaleTimeString('mn-MN', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Ulaanbaatar' }), done: true },
+        { status: 'confirmed', label: 'Баталгаажсан',              time: new Date().toLocaleTimeString('mn-MN', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Ulaanbaatar' }), done: true },
+        { status: 'preparing',  label: 'Бэлтгэж байна',            time: '', done: false },
+        { status: 'delivering', label: 'Хүргэлтэнд гарсан',        time: '', done: false },
+        { status: 'delivered',  label: 'Хүргэгдсэн',               time: '', done: false },
       ],
       paymentMethod: payment,
       subtotal: cartTotal,

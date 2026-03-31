@@ -188,9 +188,20 @@ export default function AdminPanel() {
   }
 
   function handleSaveProduct() {
-    if (!productForm.name.trim() || !productForm.price || !productForm.stock) {
-      toast('Нэр, үнэ, нөөцийг бөглөнө үү', 'error'); return
-    }
+    const price    = Number(productForm.price)
+    const stock    = Number(productForm.stock)
+    const discount = productForm.discount ? Number(productForm.discount) : 0
+    const wholesale = productForm.wholesalePrice ? Number(productForm.wholesalePrice) : undefined
+    const minWholesale = productForm.minWholesaleQty ? Number(productForm.minWholesaleQty) : undefined
+
+    if (!productForm.name.trim()) { toast('Бүтээгдэхүүний нэр оруулна уу', 'error'); return }
+    if (!productForm.price || price <= 0) { toast('Үнэ 0-аас их байх ёстой', 'error'); return }
+    if (!productForm.stock && productForm.stock !== '0') { toast('Нөөц оруулна уу', 'error'); return }
+    if (stock < 0) { toast('Нөөц сөрөг байж болохгүй', 'error'); return }
+    if (discount < 0 || discount > 100) { toast('Хөнгөлөлт 0–100% хооронд байх ёстой', 'error'); return }
+    if (wholesale !== undefined && wholesale <= 0) { toast('Бөөний үнэ 0-аас их байх ёстой', 'error'); return }
+    if (wholesale !== undefined && minWholesale !== undefined && minWholesale < 1) { toast('Бөөний минимум тоо 1-ээс их байх ёстой', 'error'); return }
+
     const base = {
       id: editingProductId ?? `p_${Date.now()}`,
       name: productForm.name.trim(),
@@ -198,12 +209,12 @@ export default function AdminPanel() {
       emoji: productForm.emoji,
       image: productForm.image || undefined,
       category: productForm.category,
-      price: Number(productForm.price),
+      price,
       unit: productForm.unit || 'кг',
-      stock: Number(productForm.stock),
+      stock,
       description: productForm.description,
       origin: productForm.origin,
-      discount: productForm.discount ? Number(productForm.discount) : undefined,
+      discount: discount > 0 ? discount : undefined,
       isOrganic: productForm.isOrganic,
       isFeatured: productForm.isFeatured,
       bgGradient: productForm.bgGradient || 'from-green-50 to-green-100',
@@ -211,8 +222,8 @@ export default function AdminPanel() {
       packagedAt: productForm.packagedAt || undefined,
       certifiedAt: productForm.certifiedAt || undefined,
       variants: productForm.variants.length > 0 ? productForm.variants : undefined,
-      wholesalePrice: productForm.wholesalePrice ? Number(productForm.wholesalePrice) : undefined,
-      minWholesaleQty: productForm.minWholesaleQty ? Number(productForm.minWholesaleQty) : undefined,
+      wholesalePrice: wholesale,
+      minWholesaleQty: minWholesale,
       freeDelivery: productForm.freeDelivery || undefined,
     }
     if (editingProductId) {
@@ -1008,10 +1019,33 @@ export default function AdminPanel() {
                     </div>
                   )}
                   {discountForm.scope === 'products' && (
-                    <div>
-                      <label className="label-mono text-ink/50 block mb-1">Бүтээгдэхүүний ID (таслалаар)</label>
-                      <input value={discountForm.productIds} onChange={e => df('productIds', e.target.value)}
-                        className="w-full border border-cream-dark rounded-sm px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-lime" placeholder="p1, p5, p13" />
+                    <div className="md:col-span-2">
+                      <label className="label-mono text-ink/50 block mb-1.5">Бүтээгдэхүүн сонгох</label>
+                      <div className="border border-cream-dark rounded-sm max-h-48 overflow-y-auto divide-y divide-cream">
+                        {state.products.map(p => {
+                          const selected = discountForm.productIds.split(',').map(s => s.trim()).filter(Boolean).includes(p.id)
+                          return (
+                            <label key={p.id} className={`flex items-center gap-2.5 px-3 py-2 cursor-pointer hover:bg-cream transition-colors ${selected ? 'bg-lime/5' : ''}`}>
+                              <input
+                                type="checkbox"
+                                checked={selected}
+                                onChange={e => {
+                                  const current = discountForm.productIds.split(',').map(s => s.trim()).filter(Boolean)
+                                  const next = e.target.checked ? [...current, p.id] : current.filter(id => id !== p.id)
+                                  df('productIds', next.join(', '))
+                                }}
+                                className="accent-lime shrink-0"
+                              />
+                              <span className="text-xl shrink-0">{p.image ? '🖼' : p.emoji}</span>
+                              <span className="text-sm text-ink truncate">{p.name}</span>
+                              <span className="label-mono text-ink/30 ml-auto shrink-0">{p.id}</span>
+                            </label>
+                          )
+                        })}
+                      </div>
+                      {discountForm.productIds.split(',').map(s => s.trim()).filter(Boolean).length > 0 && (
+                        <p className="text-xs text-lime-dark mt-1">{discountForm.productIds.split(',').map(s => s.trim()).filter(Boolean).length} бүтээгдэхүүн сонгогдсон</p>
+                      )}
                     </div>
                   )}
                   <div>
@@ -1034,6 +1068,9 @@ export default function AdminPanel() {
                 <div className="flex gap-3 mt-4">
                   <button onClick={() => {
                     if (!discountForm.code.trim() || discountForm.value === '' || Number(discountForm.value) <= 0) { toast('Код болон хөнгөлөлтийн утгыг оруулна уу', 'error'); return }
+                    if (discountForm.type === 'percent' && Number(discountForm.value) > 100) { toast('Хувийн хөнгөлөлт 100%-аас их байж болохгүй', 'error'); return }
+                    if (discountForm.scope === 'category' && !discountForm.categoryTarget) { toast('Ангилал сонгоно уу', 'error'); return }
+                    if (discountForm.scope === 'products' && !discountForm.productIds.trim()) { toast('Дор хаяж нэг бүтээгдэхүүн сонгоно уу', 'error'); return }
                     const code: DiscountCode = {
                       id: editingDiscountId ?? `dc_${Date.now()}`,
                       code: discountForm.code.trim(),

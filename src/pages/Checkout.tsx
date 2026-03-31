@@ -34,10 +34,11 @@ export default function Checkout() {
     )
   }
 
-  // Zone-aware delivery fee (once address is selected)
+  // Zone-aware delivery fee — always go through getDeliveryFeeForDistrict
+  // If no address selected yet, use first zone as estimate
   const zoneDeliveryFee = selectedAddress
     ? getDeliveryFeeForDistrict(selectedAddress.district)
-    : (cartTotal >= 50000 ? 0 : 3000)
+    : getDeliveryFeeForDistrict(state.deliveryZones[0]?.district ?? '')
 
   const { code: discountCode, amount: discountAmount } = state.cartDiscount
   const finalTotal = Math.max(0, cartTotal - discountAmount + zoneDeliveryFee)

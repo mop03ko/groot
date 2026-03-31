@@ -32,8 +32,9 @@ export default function ProductDetail() {
 
   const activeVariant = product.variants?.find(v => v.id === selectedVariant)
   const basePrice = activeVariant ? activeVariant.price : product.price
-  const effectivePrice = !activeVariant && product.discount
-    ? Math.round(product.price * (1 - product.discount / 100))
+  // Apply discount to both base price and variant prices
+  const effectivePrice = product.discount
+    ? Math.round(basePrice * (1 - product.discount / 100))
     : basePrice
 
   // Wholesale pricing
@@ -83,7 +84,7 @@ export default function ProductDetail() {
                 : <span className="badge-fresh">● Шинэ</span>
               }
               {product.isOrganic && <span className="badge-organic">🌱 Органик</span>}
-              {product.discount && !activeVariant && (
+              {product.discount && (
                 <span className="font-mono text-xs px-2 py-0.5 bg-red-100 text-red-600 border border-red-200 rounded-sm uppercase tracking-wide">-{product.discount}%</span>
               )}
             </div>
@@ -147,8 +148,8 @@ export default function ProductDetail() {
                 <span className="font-serif font-bold text-forest text-3xl">
                   {displayPrice.toLocaleString('mn-MN')}₮
                 </span>
-                {product.discount && !activeVariant && (
-                  <span className="text-sm text-ink/30 line-through">{product.price.toLocaleString('mn-MN')}₮</span>
+                {product.discount && !isWholesale && (
+                  <span className="text-sm text-ink/30 line-through">{basePrice.toLocaleString('mn-MN')}₮</span>
                 )}
                 {isWholesale && (
                   <span className="label-mono text-lime-dark">бөөний үнэ</span>

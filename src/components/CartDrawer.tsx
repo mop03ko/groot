@@ -111,7 +111,7 @@ export default function CartDrawer() {
                 const ep = isWholesale
                   ? item.product.wholesalePrice!
                   : item.product.discount
-                    ? Math.round(item.product.price * (1 - item.product.discount / 100))
+                    ? Math.round(item.product.price * (1 - item.product.discount / 100))  // per-item display — rounded
                     : item.product.price
                 return (
                   <div key={item.product.id} className="flex items-center gap-3 px-5 py-3.5 hover:bg-cream/50 transition-colors">
